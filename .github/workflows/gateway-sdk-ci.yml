@@ -1,0 +1,142 @@
+name: Gateway SDK CI/CD
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'src/**'
+
+env:
+  SDK_ROOT: src
+
+jobs:
+  # ── .NET ─────────────────────────────────────────────────────────
+  dotnet:
+    name: .NET SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/dotnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet build Airlock.Gateway.Sdk/Airlock.Gateway.Sdk.csproj -c Release
+      - run: dotnet test Airlock.Gateway.Sdk.Tests/Airlock.Gateway.Sdk.Tests.csproj -c Release --verbosity normal
+
+      # Pack & Publish on tag
+      - name: Pack NuGet
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          dotnet pack Airlock.Gateway.Sdk/Airlock.Gateway.Sdk.csproj -c Release /p:Version=$VERSION -o dist
+      - name: Push to NuGet
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: dotnet nuget push dist/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+  # ── Python ───────────────────────────────────────────────────────
+  python:
+    name: Python SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: pytest --tb=short -v
+
+      # Build & Publish on tag
+      - name: Build distributions
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          pip install build
+          python -m build
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ env.SDK_ROOT }}/python/dist
+          password: ${{ secrets.PYPI_TOKEN }}
+
+  # ── TypeScript ───────────────────────────────────────────────────
+  typescript:
+    name: TypeScript SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+
+      # Build & Publish on tag
+      - name: Build & Publish to NPM
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          npm version $VERSION --no-git-tag-version
+          npm run build
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Go ───────────────────────────────────────────────────────────
+  go:
+    name: Go SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - run: go test ./airlock/... -v
+
+      # Go modules are published by pushing a tag — no registry upload needed.
+      # Tag format: src/go/v{VERSION}
+
+  # ── Rust ─────────────────────────────────────────────────────────
+  rust:
+    name: Rust SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build
+      - run: cargo test
+
+      # Publish on tag
+      - name: Publish to crates.io
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          cargo publish --token ${{ secrets.CRATES_TOKEN }}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}

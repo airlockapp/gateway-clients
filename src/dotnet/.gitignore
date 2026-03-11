@@ -1,0 +1,14 @@
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.nupkg
+*.snupkg
+project.lock.json
+artifacts/
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+[Tt]est[Rr]esult*/
+TestResults/
