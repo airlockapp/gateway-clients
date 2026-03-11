@@ -33,5 +33,11 @@ dev = [
     "respx>=0.21.0",
 ]
 
+[project.urls]
+Homepage = "https://airlockapp.io"
+Repository = "https://github.com/airlockapp/gateway-clients"
+Documentation = "https://github.com/airlockapp/gateway-clients/tree/main/src/python"
+"HARP Protocol" = "https://harp-protocol.github.io"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

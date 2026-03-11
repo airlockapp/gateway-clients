@@ -5,6 +5,10 @@ edition = "2021"
 description = "Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence."
 license = "MIT"
 keywords = ["airlock", "gateway", "sdk", "harp", "approval"]
+repository = "https://github.com/airlockapp/gateway-clients"
+homepage = "https://airlockapp.io"
+documentation = "https://github.com/airlockapp/gateway-clients/tree/main/src/rust"
+readme = "README.md"
 
 [dependencies]
 reqwest = { version = "0.12", features = ["json"] }
