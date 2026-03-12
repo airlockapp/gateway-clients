@@ -57,6 +57,8 @@ if (decision?.body?.decision === "approve") {
 | `sendHeartbeat(request)` | Presence heartbeat |
 | `listEnforcers()` | List online enforcers |
 | `getEnforcerPresence(id)` | Get enforcer presence |
+| `submitDndPolicy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
+| `getEffectiveDndPolicies(enforcerId, workspaceId, sessionId?)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
 
 ## Error Handling
 

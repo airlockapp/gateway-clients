@@ -264,6 +264,36 @@ async def test_acknowledge(client, mock_api):
     assert b"msg-123" in body
 
 
+@pytest.mark.asyncio
+async def test_get_effective_dnd_policies(client, mock_api):
+    route = mock_api.get("/v1/policy/dnd/effective").respond(
+        200,
+        json={
+            "msgType": "dnd.policy.effective",
+            "requestId": "dnd-effective-1",
+            "body": [
+                {
+                    "requestId": "p1",
+                    "objectType": "airlock.dnd.workspace",
+                    "workspaceId": "ws-1",
+                    "enforcerId": "enf-1",
+                    "policyMode": "approve_all",
+                    "expiresAt": "2099-01-01T00:00:00Z",
+                }
+            ],
+        },
+    )
+
+    resp = await client.get_effective_dnd_policies(
+        enforcer_id="enf-1", workspace_id="ws-1"
+    )
+
+    assert route.called
+    assert resp.msg_type == "dnd.policy.effective"
+    assert len(resp.body) == 1
+    assert resp.body[0].policy_mode == "approve_all"
+
+
 # ── Pairing ──────────────────────────────────────────────────────
 
 

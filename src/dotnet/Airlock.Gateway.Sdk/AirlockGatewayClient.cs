@@ -220,6 +220,45 @@ namespace Airlock.Gateway.Sdk
                 .ConfigureAwait(false);
         }
 
+        // ── DND (Do Not Disturb) Policies ───────────────────────────
+
+        /// <inheritdoc />
+        public async Task SubmitDndPolicyAsync(object policy, CancellationToken ct = default)
+        {
+            if (policy is null) throw new ArgumentNullException(nameof(policy));
+            await PostAsync("/v1/policy/dnd", policy, ct).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        public async Task<DndEffectiveResponse> GetEffectiveDndPoliciesAsync(
+            string enforcerId,
+            string workspaceId,
+            string? sessionId = null,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(enforcerId))
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(enforcerId));
+            if (string.IsNullOrWhiteSpace(workspaceId))
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(workspaceId));
+
+            var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+            query["enforcerId"] = enforcerId;
+            query["workspaceId"] = workspaceId;
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                query["sessionId"] = sessionId;
+            }
+
+            var path = "/v1/policy/dnd/effective";
+            var qs = query.ToString();
+            if (!string.IsNullOrEmpty(qs))
+            {
+                path += "?" + qs;
+            }
+
+            return await GetAsync<DndEffectiveResponse>(path, ct).ConfigureAwait(false);
+        }
+
         // ── HTTP Helpers ────────────────────────────────────────────
 
         private async Task<T> GetAsync<T>(string path, CancellationToken ct)

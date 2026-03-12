@@ -517,6 +517,35 @@ public class AirlockGatewayClientTests
     }
 
     [Fact]
+    public async Task GetEffectiveDndPoliciesAsync_ReturnsPolicies()
+    {
+        var (client, handler) = CreateClient();
+        handler.Enqueue(HttpStatusCode.OK, new
+        {
+            msgType = "dnd.policy.effective",
+            requestId = "dnd-effective-1",
+            body = new[]
+            {
+                new
+                {
+                    requestId = "p1",
+                    objectType = "airlock.dnd.workspace",
+                    workspaceId = "ws-1",
+                    enforcerId = "enf-1",
+                    policyMode = "approve_all",
+                    expiresAt = "2099-01-01T00:00:00Z"
+                }
+            }
+        });
+
+        var resp = await client.GetEffectiveDndPoliciesAsync("enf-1", "ws-1");
+
+        Assert.Equal("dnd.policy.effective", resp.MsgType);
+        Assert.Single(resp.Body);
+        Assert.Equal("approve_all", resp.Body[0].PolicyMode);
+    }
+
+    [Fact]
     public async Task GetEnforcerPresenceAsync_ThrowsOnNotFound()
     {
         var (client, handler) = CreateClient();

@@ -69,6 +69,8 @@ func main() {
 | `SendHeartbeat(req)` | Presence heartbeat |
 | `ListEnforcers()` | List online enforcers |
 | `GetEnforcerPresence(id)` | Get enforcer presence |
+| `SubmitDndPolicy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
+| `GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
 
 ## Error Handling
 

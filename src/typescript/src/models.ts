@@ -170,6 +170,28 @@ export interface EchoResponse {
     offsetMinutes: number;
 }
 
+// ── DND (Do Not Disturb) Policies ─────────────────────────────────
+
+export interface DndPolicyWire {
+    requestId: string;
+    objectType: string;
+    workspaceId: string;
+    sessionId?: string;
+    enforcerId: string;
+    policyMode: string;
+    targetArtifactType?: string;
+    actionSelector?: Record<string, unknown>;
+    selectorHash?: string;
+    createdAt?: string;
+    expiresAt: string;
+}
+
+export interface DndEffectiveResponse {
+    msgType: string;
+    requestId: string;
+    body: DndPolicyWire[];
+}
+
 // ── Ack ─────────────────────────────────────────────────────────
 
 export interface AckSubmitBody {

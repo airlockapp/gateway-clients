@@ -12,6 +12,7 @@ from airlock_gateway.exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
     DecisionDeliverEnvelope,
+    DndEffectiveResponse,
     EchoResponse,
     EnforcerPresenceRecord,
     ExchangeStatusResponse,
@@ -221,6 +222,31 @@ class AirlockGatewayClient:
         """GET /v1/presence/enforcers/{id} — Get a single enforcer's presence."""
         data = await self._get(f"/v1/presence/enforcers/{enforcer_device_id}")
         return EnforcerPresenceRecord.model_validate(data)
+
+    # ── DND (Do Not Disturb) Policies ──────────────────────────────
+
+    async def submit_dnd_policy(self, policy: Dict[str, Any]) -> None:
+        """POST /v1/policy/dnd — Submit a signed DND policy object."""
+        await self._post_json("/v1/policy/dnd", policy)
+
+    async def get_effective_dnd_policies(
+        self,
+        *,
+        enforcer_id: str,
+        workspace_id: str,
+        session_id: Optional[str] = None,
+    ) -> DndEffectiveResponse:
+        """GET /v1/policy/dnd/effective — Fetch effective DND policies."""
+        params: Dict[str, str] = {
+            "enforcerId": enforcer_id,
+            "workspaceId": workspace_id,
+        }
+        if session_id:
+            params["sessionId"] = session_id
+
+        response = await self._client.get("/v1/policy/dnd/effective", params=params)
+        self._raise_for_status(response)
+        return DndEffectiveResponse.model_validate(response.json())
 
     # ── HTTP Helpers ─────────────────────────────────────────────
 

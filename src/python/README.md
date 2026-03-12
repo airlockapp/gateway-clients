@@ -66,6 +66,8 @@ asyncio.run(main())
 | `send_heartbeat(request)` | Presence heartbeat |
 | `list_enforcers()` | List online enforcers |
 | `get_enforcer_presence(id)` | Get enforcer presence |
+| `submit_dnd_policy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
+| `get_effective_dnd_policies(enforcer_id, workspace_id, session_id=None)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
 
 ## Error Handling
 

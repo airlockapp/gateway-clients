@@ -211,3 +211,29 @@ type EchoResponse struct {
 	Timezone      string `json:"timezone"`
 	OffsetMinutes int    `json:"offsetMinutes"`
 }
+
+// ── DND (Do Not Disturb) Policies ────────────────────────────────
+
+// DndPolicy represents a DND policy object as returned by the gateway.
+// This type intentionally mirrors the wire shape but keeps most fields generic
+// so the SDK does not have to understand all possible extensions.
+type DndPolicy struct {
+	RequestID         string                 `json:"requestId"`
+	ObjectType        string                 `json:"objectType"`
+	WorkspaceID       string                 `json:"workspaceId"`
+	SessionID         string                 `json:"sessionId,omitempty"`
+	EnforcerID        string                 `json:"enforcerId"`
+	PolicyMode        string                 `json:"policyMode"`
+	TargetArtifactType string                `json:"targetArtifactType,omitempty"`
+	ActionSelector    map[string]interface{} `json:"actionSelector,omitempty"`
+	SelectorHash      string                 `json:"selectorHash,omitempty"`
+	CreatedAt         string                 `json:"createdAt,omitempty"`
+	ExpiresAt         string                 `json:"expiresAt"`
+}
+
+// DndEffectiveResponse is the response from GET /v1/policy/dnd/effective.
+type DndEffectiveResponse struct {
+	MsgType   string      `json:"msgType"`
+	RequestID string      `json:"requestId"`
+	Body      []DndPolicy `json:"body"`
+}

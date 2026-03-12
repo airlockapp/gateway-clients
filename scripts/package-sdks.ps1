@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Supports building individual SDKs or all at once.
-    Outputs packages to dist/{language}/
+    Outputs packages to gateway_sdk/dist/{language}/
 
 .PARAMETER Sdk
     Which SDK to build: dotnet, python, typescript, go, rust, or all.
@@ -48,8 +48,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$SrcRoot = Join-Path $Root "src"
-$DistRoot = Join-Path $Root "dist"
+$SdkRoot = Join-Path $Root "gateway_sdk"
+$SrcRoot = Join-Path $SdkRoot "src"
+$DistRoot = Join-Path $SdkRoot "dist"
 
 function Write-Step($msg) {
     Write-Host "`n===> $msg" -ForegroundColor Cyan
@@ -213,13 +214,13 @@ function Build-Go {
 
         Write-Success "Go tests passed"
         Write-Host "  Go packages are published by tagging the repository:" -ForegroundColor Gray
-        Write-Host "    git tag src/go/v$Version" -ForegroundColor Gray
-        Write-Host "    git push origin src/go/v$Version" -ForegroundColor Gray
+        Write-Host "    git tag gateway_sdk/src/go/v$Version" -ForegroundColor Gray
+        Write-Host "    git push origin gateway_sdk/src/go/v$Version" -ForegroundColor Gray
 
         if ($Push) {
             Write-Step "Tagging Go module v$Version"
-            git tag "src/go/v$Version"
-            Write-Success "Tagged src/go/v$Version (push manually with 'git push origin src/go/v$Version')"
+            git tag "gateway_sdk/src/go/v$Version"
+            Write-Success "Tagged gateway_sdk/src/go/v$Version (push manually with 'git push origin gateway_sdk/src/go/v$Version')"
         }
     }
     finally {

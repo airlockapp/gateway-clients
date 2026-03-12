@@ -70,5 +70,17 @@ namespace Airlock.Gateway.Sdk
 
         /// <summary>GET /v1/presence/enforcers/{id} — Get a single enforcer's presence.</summary>
         Task<EnforcerPresenceRecord> GetEnforcerPresenceAsync(string enforcerDeviceId, CancellationToken ct = default);
+
+        // ── DND (Do Not Disturb) Policies ───────────────────────────
+
+        /// <summary>POST /v1/policy/dnd — Submit a signed DND policy object.</summary>
+        Task SubmitDndPolicyAsync(object policy, CancellationToken ct = default);
+
+        /// <summary>GET /v1/policy/dnd/effective — Fetch effective DND policies for an enforcer/workspace/session.</summary>
+        Task<DndEffectiveResponse> GetEffectiveDndPoliciesAsync(
+            string enforcerId,
+            string workspaceId,
+            string? sessionId = null,
+            CancellationToken ct = default);
     }
 }

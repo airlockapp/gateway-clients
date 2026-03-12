@@ -163,6 +163,46 @@ func TestSubmitArtifact_Conflict(t *testing.T) {
 	}
 }
 
+// ── DND (Do Not Disturb) Policies ────────────────────────────────
+
+func TestGetEffectiveDndPolicies(t *testing.T) {
+	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/v1/policy/dnd/effective") {
+			t.Errorf("expected /v1/policy/dnd/effective, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{
+			"msgType": "dnd.policy.effective",
+			"requestId": "dnd-effective-1",
+			"body": [
+				{
+					"requestId": "p1",
+					"objectType": "airlock.dnd.workspace",
+					"workspaceId": "ws-1",
+					"enforcerId": "enf-1",
+					"policyMode": "approve_all",
+					"expiresAt": "2099-01-01T00:00:00Z"
+				}
+			]
+		}`)
+	})
+	defer server.Close()
+
+	resp, err := client.GetEffectiveDndPolicies("enf-1", "ws-1", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.MsgType != "dnd.policy.effective" {
+		t.Fatalf("unexpected msgType: %s", resp.MsgType)
+	}
+	if len(resp.Body) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(resp.Body))
+	}
+	if resp.Body[0].PolicyMode != "approve_all" {
+		t.Fatalf("unexpected policyMode: %s", resp.Body[0].PolicyMode)
+	}
+}
+
 // ── WaitForDecision ─────────────────────────────────────────────
 
 func TestWaitForDecision_ReturnsDecision(t *testing.T) {

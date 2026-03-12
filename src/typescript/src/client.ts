@@ -4,6 +4,7 @@ import type {
     ArtifactSubmitRequest,
     CiphertextRef,
     DecisionDeliverEnvelope,
+    DndEffectiveResponse,
     EchoResponse,
     EnforcerPresenceRecord,
     ExchangeStatusResponse,
@@ -169,6 +170,30 @@ export class AirlockGatewayClient {
     /** GET /v1/presence/enforcers/{id} — Get a single enforcer's presence. */
     async getEnforcerPresence(enforcerDeviceId: string): Promise<EnforcerPresenceRecord> {
         return this.get<EnforcerPresenceRecord>(`/v1/presence/enforcers/${encodeURIComponent(enforcerDeviceId)}`);
+    }
+
+    // ── DND (Do Not Disturb) Policies ─────────────────────────────
+
+    /** POST /v1/policy/dnd — Submit a signed DND policy object. */
+    async submitDndPolicy(policy: unknown): Promise<void> {
+        await this.post("/v1/policy/dnd", policy);
+    }
+
+    /** GET /v1/policy/dnd/effective — Fetch effective DND policies for an enforcer/workspace/session. */
+    async getEffectiveDndPolicies(
+        enforcerId: string,
+        workspaceId: string,
+        sessionId?: string
+    ): Promise<DndEffectiveResponse> {
+        const params = new URLSearchParams({
+            enforcerId,
+            workspaceId,
+        });
+        if (sessionId) {
+            params.set("sessionId", sessionId);
+        }
+        const path = `/v1/policy/dnd/effective?${params.toString()}`;
+        return this.get<DndEffectiveResponse>(path);
     }
 
     // ── HTTP Helpers ────────────────────────────────────────────

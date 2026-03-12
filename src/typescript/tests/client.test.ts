@@ -221,6 +221,36 @@ describe("acknowledge", () => {
     });
 });
 
+// ── DND (Do Not Disturb) Policies ─────────────────────────────────
+
+describe("DND policies", () => {
+    it("fetches effective DND policies", async () => {
+        const { client, mock } = createClient();
+        mock.enqueue(200, {
+            msgType: "dnd.policy.effective",
+            requestId: "dnd-effective-1",
+            body: [
+                {
+                    requestId: "p1",
+                    objectType: "airlock.dnd.workspace",
+                    workspaceId: "ws-1",
+                    enforcerId: "enf-1",
+                    policyMode: "approve_all",
+                    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                },
+            ],
+        });
+
+        const resp = await client.getEffectiveDndPolicies("enf-1", "ws-1");
+
+        expect(mock.requests[0].url).toContain("/v1/policy/dnd/effective");
+        expect(mock.requests[0].url).toContain("enforcerId=enf-1");
+        expect(mock.requests[0].url).toContain("workspaceId=ws-1");
+        expect(resp.body).toHaveLength(1);
+        expect(resp.body[0].policyMode).toBe("approve_all");
+    });
+});
+
 // ── Pairing ──────────────────────────────────────────────────────
 
 describe("pairing", () => {

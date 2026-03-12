@@ -238,6 +238,32 @@ func (c *Client) GetEnforcerPresence(enforcerDeviceID string) (*EnforcerPresence
 	return &resp, nil
 }
 
+// ── DND (Do Not Disturb) Policies ────────────────────────────────
+
+// SubmitDndPolicy calls POST /v1/policy/dnd with a signed DND policy object.
+// The payload should already be a canonical, signed policy JSON object.
+func (c *Client) SubmitDndPolicy(policy interface{}) error {
+	return c.doPost("/v1/policy/dnd", policy, nil)
+}
+
+// GetEffectiveDndPolicies calls GET /v1/policy/dnd/effective and returns the
+// effective policies for the given enforcer/workspace/session.
+func (c *Client) GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID string) (*DndEffectiveResponse, error) {
+	values := url.Values{}
+	values.Set("enforcerId", enforcerID)
+	values.Set("workspaceId", workspaceID)
+	if sessionID != "" {
+		values.Set("sessionId", sessionID)
+	}
+	path := "/v1/policy/dnd/effective?" + values.Encode()
+
+	var resp DndEffectiveResponse
+	if err := c.doGet(path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ── HTTP Helpers ────────────────────────────────────────────────
 
 func (c *Client) doGet(path string, out interface{}) error {

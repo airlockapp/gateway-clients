@@ -68,6 +68,8 @@ if (decision?.Body?.IsApproved == true)
 | `SendHeartbeatAsync(request)` | Presence heartbeat |
 | `ListEnforcersAsync()` | List online enforcers |
 | `GetEnforcerPresenceAsync(id)` | Get enforcer presence |
+| `SubmitDndPolicyAsync(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
+| `GetEffectiveDndPoliciesAsync(enforcerId, workspaceId, sessionId)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
 
 ## Error Handling
 

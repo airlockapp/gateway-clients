@@ -223,3 +223,38 @@ class EchoResponse(BaseModel):
     offset_minutes: int = Field(0, alias="offsetMinutes")
 
     model_config = {"populate_by_name": True}
+
+
+# ── DND (Do Not Disturb) Policies ─────────────────────────────────
+
+
+class DndPolicyWire(BaseModel):
+    """DND policy object as returned by the gateway."""
+
+    request_id: str = Field(..., alias="requestId")
+    object_type: str = Field(..., alias="objectType")
+    workspace_id: str = Field(..., alias="workspaceId")
+    session_id: Optional[str] = Field(None, alias="sessionId")
+    enforcer_id: str = Field(..., alias="enforcerId")
+    policy_mode: str = Field(..., alias="policyMode")
+    target_artifact_type: Optional[str] = Field(
+        None, alias="targetArtifactType"
+    )
+    action_selector: Optional[Dict[str, Any]] = Field(
+        None, alias="actionSelector"
+    )
+    selector_hash: Optional[str] = Field(None, alias="selectorHash")
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+    expires_at: datetime = Field(..., alias="expiresAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class DndEffectiveResponse(BaseModel):
+    """Response for GET /v1/policy/dnd/effective."""
+
+    msg_type: str = Field("", alias="msgType")
+    request_id: str = Field("", alias="requestId")
+    body: List[DndPolicyWire] = []
+
+    model_config = {"populate_by_name": True}
