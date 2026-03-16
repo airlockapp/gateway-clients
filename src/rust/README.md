@@ -1,6 +1,6 @@
 # airlock-gateway (Rust)
 
-An async Rust client SDK for the Airlock Gateway API.
+An async Rust client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
@@ -13,13 +13,15 @@ airlock-gateway = "0.1"
 
 ## Quick Start
 
+### With Bearer Token
+
 ```rust
 use airlock_gateway::*;
 
 #[tokio::main]
 async fn main() -> Result<(), GatewayError> {
     let client = AirlockGatewayClient::new(
-        "https://gw.example.com",
+        "https://igw.airlocks.io",
         Some("your-token"),
     );
 
@@ -53,6 +55,16 @@ async fn main() -> Result<(), GatewayError> {
 }
 ```
 
+### With Enforcer App Credentials
+
+```rust
+let client = AirlockGatewayClient::with_credentials(
+    "https://igw.airlocks.io",
+    "your-client-id",
+    "your-client-secret",
+);
+```
+
 ## API Reference
 
 | Method | Description |
@@ -62,16 +74,11 @@ async fn main() -> Result<(), GatewayError> {
 | `get_exchange_status(id)` | Get exchange status |
 | `wait_for_decision(id, timeout)` | Long-poll for decision |
 | `withdraw_exchange(id)` | Withdraw pending exchange |
-| `acknowledge(msg_id, enforcer_id)` | Acknowledge inbox message |
 | `initiate_pairing(req)` | Start pairing session |
-| `resolve_pairing(code)` | Resolve pairing code |
 | `get_pairing_status(nonce)` | Poll pairing status |
-| `complete_pairing(req)` | Complete pairing |
 | `revoke_pairing(token)` | Revoke a pairing |
-| `get_pairing_status_batch(tokens)` | Batch check pairings |
 | `send_heartbeat(req)` | Presence heartbeat |
-| `list_enforcers()` | List online enforcers |
-| `get_enforcer_presence(id)` | Get enforcer presence |
+| `get_effective_dnd_policies(enforcer_id, workspace_id, session_id)` | Fetch effective DND policies |
 
 ## Error Handling
 

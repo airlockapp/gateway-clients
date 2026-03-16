@@ -1,6 +1,6 @@
 # @airlock/gateway-sdk (TypeScript)
 
-A zero-dependency TypeScript client SDK for the Airlock Gateway API. Uses the native `fetch` API — works in Node.js 18+ and modern browsers.
+A zero-dependency TypeScript client SDK for the Airlock Integrations Gateway API. Uses the native `fetch` API — works in Node.js 18+ and modern browsers.
 
 ## Installation
 
@@ -10,14 +10,30 @@ npm install @airlock/gateway-sdk
 
 ## Quick Start
 
+### With Bearer Token
+
 ```typescript
 import { AirlockGatewayClient } from "@airlock/gateway-sdk";
 
 const client = new AirlockGatewayClient({
-    baseUrl: "https://gw.example.com",
+    baseUrl: "https://igw.airlocks.io",
     token: "your-token",
 });
+```
 
+### With Enforcer App Credentials
+
+```typescript
+const client = new AirlockGatewayClient({
+    baseUrl: "https://igw.airlocks.io",
+    clientId: "your-client-id",
+    clientSecret: "your-client-secret",
+});
+```
+
+### Submit and Poll
+
+```typescript
 // Submit an artifact for approval
 const requestId = await client.submitArtifact({
     enforcerId: "my-enforcer",
@@ -47,18 +63,11 @@ if (decision?.body?.decision === "approve") {
 | `getExchangeStatus(requestId)` | Get exchange status |
 | `waitForDecision(requestId, timeout)` | Long-poll for decision |
 | `withdrawExchange(requestId)` | Withdraw pending exchange |
-| `acknowledge(msgId, enforcerId)` | Acknowledge inbox message |
 | `initiatePairing(request)` | Start pairing session |
-| `resolvePairing(code)` | Resolve pairing code |
 | `getPairingStatus(nonce)` | Poll pairing status |
-| `completePairing(request)` | Complete pairing |
 | `revokePairing(routingToken)` | Revoke a pairing |
-| `getPairingStatusBatch(tokens)` | Batch check pairings |
 | `sendHeartbeat(request)` | Presence heartbeat |
-| `listEnforcers()` | List online enforcers |
-| `getEnforcerPresence(id)` | Get enforcer presence |
-| `submitDndPolicy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
-| `getEffectiveDndPolicies(enforcerId, workspaceId, sessionId?)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
+| `getEffectiveDndPolicies(enforcerId, workspaceId, sessionId?)` | Fetch effective DND policies |
 
 ## Error Handling
 
@@ -85,7 +94,7 @@ You can provide a custom `fetch` implementation for testing or intercepting requ
 
 ```typescript
 const client = new AirlockGatewayClient({
-    baseUrl: "https://gw.example.com",
+    baseUrl: "https://igw.airlocks.io",
     fetch: myCustomFetch,
 });
 ```

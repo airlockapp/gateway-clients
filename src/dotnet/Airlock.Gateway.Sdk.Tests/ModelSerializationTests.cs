@@ -149,17 +149,6 @@ public class ModelSerializationTests
     }
 
     [Fact]
-    public void PairingStatusBatchResponse_Deserializes()
-    {
-        var json = """{"statuses":{"rt-1":"Completed","rt-2":"Revoked","rt-3":"Unknown"}}""";
-        var deserialized = JsonSerializer.Deserialize<PairingStatusBatchResponse>(json, Opts)!;
-
-        Assert.Equal(3, deserialized.Statuses.Count);
-        Assert.Equal("Completed", deserialized.Statuses["rt-1"]);
-        Assert.Equal("Revoked", deserialized.Statuses["rt-2"]);
-    }
-
-    [Fact]
     public void EchoResponse_Deserializes()
     {
         var json = """{"utc":"2025-01-01T00:00:00Z","local":"2025-01-01T03:00:00+03:00","timezone":"Europe/Istanbul","offsetMinutes":180}""";
@@ -188,15 +177,13 @@ public class ModelSerializationTests
     }
 
     [Fact]
-    public void EnforcerPresenceRecord_Deserializes()
+    public void DndPolicyWire_Deserializes()
     {
-        var json = """{"enforcerDeviceId":"e1","status":"online","workspaceName":"proj","enforcerLabel":"Cursor","transport":"websocket","capabilities":{"hooks":"true"}}""";
-        var deserialized = JsonSerializer.Deserialize<EnforcerPresenceRecord>(json, Opts)!;
+        var json = """{"requestId":"p1","objectType":"airlock.dnd.workspace","workspaceId":"ws-1","enforcerId":"e1","policyMode":"approve_all","expiresAt":"2099-01-01T00:00:00Z"}""";
+        var deserialized = JsonSerializer.Deserialize<DndPolicyWire>(json, Opts)!;
 
-        Assert.Equal("e1", deserialized.EnforcerDeviceId);
-        Assert.Equal("online", deserialized.Status);
-        Assert.Equal("Cursor", deserialized.EnforcerLabel);
-        Assert.NotNull(deserialized.Capabilities);
-        Assert.Equal("true", deserialized.Capabilities?["hooks"]);
+        Assert.Equal("p1", deserialized.RequestId);
+        Assert.Equal("approve_all", deserialized.PolicyMode);
+        Assert.Equal("ws-1", deserialized.WorkspaceId);
     }
 }

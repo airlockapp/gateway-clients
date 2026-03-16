@@ -1,6 +1,9 @@
-# Airlock Gateway Client SDKs
+# Airlock Integrations Gateway Client SDKs
 
-Multi-language client SDKs for communicating with the [Airlock Gateway](https://airlock.dev) — the central routing service for human-in-the-loop AI agent approval.
+Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
+
+> **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
+> Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
 
 ## Available SDKs
 
@@ -14,27 +17,50 @@ Multi-language client SDKs for communicating with the [Airlock Gateway](https://
 
 ## Gateway API Surface
 
-All SDKs cover the **enforcer-side** API:
+All SDKs cover the **enforcer-side** endpoints:
 
-- **Artifact Submission** — `POST /v1/artifacts`
-- **Exchange Status** — `GET /v1/exchanges/{requestId}`
-- **Decision Polling** — `GET /v1/exchanges/{requestId}/wait`
-- **Exchange Withdrawal** — `POST /v1/exchanges/{requestId}/withdraw`
-- **Acknowledgement** — `POST /v1/acks`
-- **Pairing** — initiate, resolve, status, complete, revoke, batch-status
-- **Presence** — heartbeat, list enforcers, get enforcer
-- **DND Policies** — submit and query DND rules:
-  - `POST /v1/policy/dnd`
-  - `GET /v1/policy/dnd/effective?enforcerId=...&workspaceId=...&sessionId=...`
-- **Discovery** — `GET /echo`
+| Endpoint | Method |
+|----------|--------|
+| `GET /echo` | Gateway discovery and health |
+| `POST /v1/artifacts` | Submit an artifact for approval |
+| `GET /v1/exchanges/{requestId}` | Get exchange status |
+| `GET /v1/exchanges/{requestId}/wait` | Long-poll for decision |
+| `POST /v1/exchanges/{requestId}/withdraw` | Withdraw a pending exchange |
+| `POST /v1/pairing/initiate` | Start a new pairing session |
+| `GET /v1/pairing/{nonce}/status` | Poll pairing status |
+| `POST /v1/pairing/revoke` | Revoke a pairing |
+| `POST /v1/presence/heartbeat` | Send a presence heartbeat |
+| `GET /v1/policy/dnd/effective` | Fetch effective DND policies |
 
 ## Authentication
 
-All authenticated endpoints require a **Bearer JWT token** issued by the Airlock Keycloak identity provider. Pass this token when constructing the client.
+The SDKs support two authentication modes:
+
+### Bearer Token
+
+Pass a JWT token issued by the Airlock Keycloak identity provider:
+
+```python
+client = AirlockGatewayClient("https://igw.airlocks.io", token="your-jwt-token")
+```
+
+### Enforcer App Credentials (ClientId / ClientSecret)
+
+For third-party enforcer apps registered through the Developer Programme:
+
+```python
+client = AirlockGatewayClient(
+    "https://igw.airlocks.io",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+```
+
+The SDK sends these as `X-Client-Id` and `X-Client-Secret` HTTP headers on every request.
 
 ## HARP Envelope Format
 
-All artifact/decision/ack messages use the HARP Gateway Wire Envelope:
+Artifact submission messages use the HARP Gateway Wire Envelope:
 
 ```json
 {
@@ -82,8 +108,7 @@ Output packages are placed in `gateway_sdk/dist/{language}/`.
 
 ### SDK Enhancements (v2)
 
-- **Approver-side endpoints** — inbox listing, decision submission, workspace management
-- **WebSocket / SSE real-time connections** — enforcer and approver live streams, presence events
+- **WebSocket / SSE real-time connections** — enforcer live streams, presence events
 - **E2E encryption helpers** — key exchange, artifact encrypt/decrypt, signature verification
 - **Retry / backoff policies** — built-in exponential backoff for `WaitForDecision` polling loops
 

@@ -20,33 +20,6 @@ namespace Airlock.Gateway.Sdk.Models
     }
 
     /// <summary>
-    /// Presence record for a connected enforcer.
-    /// </summary>
-    public class EnforcerPresenceRecord
-    {
-        [JsonPropertyName("enforcerDeviceId")]
-        public string EnforcerDeviceId { get; set; } = "";
-
-        [JsonPropertyName("status")]
-        public string Status { get; set; } = "";
-
-        [JsonPropertyName("lastSeenAt")]
-        public DateTimeOffset? LastSeenAt { get; set; }
-
-        [JsonPropertyName("transport")]
-        public string? Transport { get; set; }
-
-        [JsonPropertyName("capabilities")]
-        public Dictionary<string, string>? Capabilities { get; set; }
-
-        [JsonPropertyName("workspaceName")]
-        public string? WorkspaceName { get; set; }
-
-        [JsonPropertyName("enforcerLabel")]
-        public string? EnforcerLabel { get; set; }
-    }
-
-    /// <summary>
     /// Response from the /echo discovery endpoint.
     /// </summary>
     public class EchoResponse

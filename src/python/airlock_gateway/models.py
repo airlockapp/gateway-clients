@@ -142,39 +142,12 @@ class PairingInitiateResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class PairingResolveResponse(BaseModel):
-    pairing_nonce: str = Field("", alias="pairingNonce")
-    device_id: str = Field("", alias="deviceId")
-    gateway_url: Optional[str] = Field(None, alias="gatewayUrl")
-    expires_at: Optional[datetime] = Field(None, alias="expiresAt")
-    x25519_public_key: Optional[str] = Field(None, alias="x25519PublicKey")
-    enforcer_label: Optional[str] = Field(None, alias="enforcerLabel")
-    workspace_name: Optional[str] = Field(None, alias="workspaceName")
-
-    model_config = {"populate_by_name": True}
-
-
 class PairingStatusResponse(BaseModel):
     pairing_nonce: str = Field("", alias="pairingNonce")
     state: str = ""
     response_json: Optional[str] = Field(None, alias="responseJson")
     routing_token: Optional[str] = Field(None, alias="routingToken")
     expires_at: Optional[datetime] = Field(None, alias="expiresAt")
-
-    model_config = {"populate_by_name": True}
-
-
-class PairingCompleteRequest(BaseModel):
-    pairing_nonce: str = Field(..., alias="pairingNonce")
-    response_json: Optional[str] = Field(None, alias="responseJson")
-
-    model_config = {"populate_by_name": True}
-
-
-class PairingCompleteResponse(BaseModel):
-    status: str = ""
-    pairing_nonce: str = Field("", alias="pairingNonce")
-    routing_token: Optional[str] = Field(None, alias="routingToken")
 
     model_config = {"populate_by_name": True}
 
@@ -186,27 +159,11 @@ class PairingRevokeResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class PairingStatusBatchResponse(BaseModel):
-    statuses: Dict[str, str] = {}
-
-
 # ── Presence ─────────────────────────────────────────────────────
 
 
 class PresenceHeartbeatRequest(BaseModel):
     enforcer_id: str = Field(..., alias="enforcerId")
-    workspace_name: Optional[str] = Field(None, alias="workspaceName")
-    enforcer_label: Optional[str] = Field(None, alias="enforcerLabel")
-
-    model_config = {"populate_by_name": True}
-
-
-class EnforcerPresenceRecord(BaseModel):
-    enforcer_device_id: str = Field("", alias="enforcerDeviceId")
-    status: str = ""
-    last_seen_at: Optional[datetime] = Field(None, alias="lastSeenAt")
-    transport: Optional[str] = None
-    capabilities: Optional[Dict[str, str]] = None
     workspace_name: Optional[str] = Field(None, alias="workspaceName")
     enforcer_label: Optional[str] = Field(None, alias="enforcerLabel")
 

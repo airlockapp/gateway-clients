@@ -158,17 +158,6 @@ pub struct ExchangeStatusResponse {
     pub body: Option<ExchangeStatusBody>,
 }
 
-// ── Ack ─────────────────────────────────────────────────────────
-
-/// Body of an ack.submit envelope.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AckSubmitBody {
-    pub msg_id: String,
-    pub status: String,
-    pub ack_at: String,
-}
-
 // ── Pairing ─────────────────────────────────────────────────────
 
 /// POST /v1/pairing/initiate request body.
@@ -200,24 +189,6 @@ pub struct PairingInitiateResponse {
     pub expires_at: Option<String>,
 }
 
-/// GET /v1/pairing/resolve/{code} response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PairingResolveResponse {
-    pub pairing_nonce: String,
-    pub device_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub gateway_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub x25519_public_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enforcer_label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub workspace_name: Option<String>,
-}
-
 /// GET /v1/pairing/{nonce}/status response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -232,25 +203,6 @@ pub struct PairingStatusResponse {
     pub expires_at: Option<String>,
 }
 
-/// POST /v1/pairing/complete request body.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PairingCompleteRequest {
-    pub pairing_nonce: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_json: Option<String>,
-}
-
-/// POST /v1/pairing/complete response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PairingCompleteResponse {
-    pub status: String,
-    pub pairing_nonce: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub routing_token: Option<String>,
-}
-
 /// POST /v1/pairing/revoke response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -260,12 +212,6 @@ pub struct PairingRevokeResponse {
     pub enforcer_id: Option<String>,
 }
 
-/// POST /v1/pairing/status-batch response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PairingStatusBatchResponse {
-    pub statuses: HashMap<String, String>,
-}
-
 // ── Presence ────────────────────────────────────────────────────
 
 /// POST /v1/presence/heartbeat request body.
@@ -273,24 +219,6 @@ pub struct PairingStatusBatchResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PresenceHeartbeatRequest {
     pub enforcer_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub workspace_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enforcer_label: Option<String>,
-}
-
-/// An enforcer's presence record.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EnforcerPresenceRecord {
-    pub enforcer_device_id: String,
-    pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_seen_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transport: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub capabilities: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -307,4 +235,37 @@ pub struct EchoResponse {
     pub local: String,
     pub timezone: String,
     pub offset_minutes: i32,
+}
+
+// ── DND (Do Not Disturb) Policies ────────────────────────────────
+
+/// DND policy object as returned by the gateway.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DndPolicy {
+    pub request_id: String,
+    pub object_type: String,
+    pub workspace_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    pub enforcer_id: String,
+    pub policy_mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_artifact_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_selector: Option<HashMap<String, serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selector_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    pub expires_at: String,
+}
+
+/// GET /v1/policy/dnd/effective response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DndEffectiveResponse {
+    pub msg_type: String,
+    pub request_id: String,
+    pub body: Vec<DndPolicy>,
 }

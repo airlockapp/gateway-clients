@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Airlock.Gateway.Sdk.Models;
@@ -7,8 +6,8 @@ using Airlock.Gateway.Sdk.Models;
 namespace Airlock.Gateway.Sdk
 {
     /// <summary>
-    /// Client interface for the Airlock Gateway API.
-    /// Supports dependency injection and unit-test mocking.
+    /// Client interface for the Airlock Integrations Gateway API.
+    /// Covers only enforcer-safe endpoints exposed by the Integrations Gateway.
     /// </summary>
     public interface IAirlockGatewayClient
     {
@@ -35,46 +34,23 @@ namespace Airlock.Gateway.Sdk
         /// <summary>POST /v1/exchanges/{requestId}/withdraw — Withdraw a pending exchange.</summary>
         Task WithdrawExchangeAsync(string requestId, CancellationToken ct = default);
 
-        // ── Acknowledgements ────────────────────────────────────────
-
-        /// <summary>POST /v1/acks — Acknowledge an inbox message.</summary>
-        Task AcknowledgeAsync(string msgId, string enforcerId, CancellationToken ct = default);
-
         // ── Pairing ─────────────────────────────────────────────────
 
         /// <summary>POST /v1/pairing/initiate — Start a new pairing session.</summary>
         Task<PairingInitiateResponse> InitiatePairingAsync(PairingInitiateRequest request, CancellationToken ct = default);
 
-        /// <summary>GET /v1/pairing/resolve/{code} — Resolve a pairing code.</summary>
-        Task<PairingResolveResponse> ResolvePairingAsync(string code, CancellationToken ct = default);
-
         /// <summary>GET /v1/pairing/{nonce}/status — Poll pairing status.</summary>
         Task<PairingStatusResponse> GetPairingStatusAsync(string nonce, CancellationToken ct = default);
 
-        /// <summary>POST /v1/pairing/complete — Complete pairing from approver side.</summary>
-        Task<PairingCompleteResponse> CompletePairingAsync(PairingCompleteRequest request, CancellationToken ct = default);
-
         /// <summary>POST /v1/pairing/revoke — Revoke a pairing.</summary>
         Task<PairingRevokeResponse> RevokePairingAsync(string routingToken, CancellationToken ct = default);
-
-        /// <summary>POST /v1/pairing/status-batch — Batch check pairing statuses.</summary>
-        Task<PairingStatusBatchResponse> GetPairingStatusBatchAsync(List<string> routingTokens, CancellationToken ct = default);
 
         // ── Presence ────────────────────────────────────────────────
 
         /// <summary>POST /v1/presence/heartbeat — Send a presence heartbeat.</summary>
         Task SendHeartbeatAsync(PresenceHeartbeatRequest request, CancellationToken ct = default);
 
-        /// <summary>GET /v1/presence/enforcers — List online enforcers.</summary>
-        Task<List<EnforcerPresenceRecord>> ListEnforcersAsync(CancellationToken ct = default);
-
-        /// <summary>GET /v1/presence/enforcers/{id} — Get a single enforcer's presence.</summary>
-        Task<EnforcerPresenceRecord> GetEnforcerPresenceAsync(string enforcerDeviceId, CancellationToken ct = default);
-
         // ── DND (Do Not Disturb) Policies ───────────────────────────
-
-        /// <summary>POST /v1/policy/dnd — Submit a signed DND policy object.</summary>
-        Task SubmitDndPolicyAsync(object policy, CancellationToken ct = default);
 
         /// <summary>GET /v1/policy/dnd/effective — Fetch effective DND policies for an enforcer/workspace/session.</summary>
         Task<DndEffectiveResponse> GetEffectiveDndPoliciesAsync(

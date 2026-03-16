@@ -41,11 +41,22 @@ public class MockHttpHandler : HttpMessageHandler
             ? await request.Content.ReadAsStringAsync()
             : null;
 
+        // Capture all request headers (including custom ones like X-Client-Id)
+        var headers = new Dictionary<string, string>();
+        foreach (var h in request.Headers)
+            headers[h.Key] = string.Join(",", h.Value);
+        if (request.Content != null)
+        {
+            foreach (var h in request.Content.Headers)
+                headers[h.Key] = string.Join(",", h.Value);
+        }
+
         Requests.Add(new CapturedRequest(
             request.Method,
             request.RequestUri!,
             bodyContent,
-            request.Headers.Authorization?.ToString()));
+            request.Headers.Authorization?.ToString(),
+            headers));
 
         if (_responses.Count == 0)
             throw new InvalidOperationException(
@@ -64,5 +75,10 @@ public class MockHttpHandler : HttpMessageHandler
     };
 
     public record MockResponse(HttpStatusCode StatusCode, string Body);
-    public record CapturedRequest(HttpMethod Method, Uri Uri, string? Body, string? Authorization);
+    public record CapturedRequest(
+        HttpMethod Method,
+        Uri Uri,
+        string? Body,
+        string? Authorization,
+        Dictionary<string, string> Headers);
 }

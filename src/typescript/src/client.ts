@@ -6,42 +6,46 @@ import type {
     DecisionDeliverEnvelope,
     DndEffectiveResponse,
     EchoResponse,
-    EnforcerPresenceRecord,
     ExchangeStatusResponse,
     HarpEnvelope,
-    PairingCompleteRequest,
-    PairingCompleteResponse,
     PairingInitiateRequest,
     PairingInitiateResponse,
-    PairingResolveResponse,
     PairingRevokeResponse,
-    PairingStatusBatchResponse,
     PairingStatusResponse,
     PresenceHeartbeatRequest,
 } from "./models.js";
 
 export interface AirlockGatewayClientOptions {
-    /** Gateway base URL (e.g., "https://gw.example.com"). */
+    /** Gateway base URL (e.g., "https://igw.airlocks.io"). */
     baseUrl: string;
     /** Optional Bearer token for authentication. */
     token?: string;
+    /** Enforcer app Client ID (X-Client-Id header). */
+    clientId?: string;
+    /** Enforcer app Client Secret (X-Client-Secret header). */
+    clientSecret?: string;
     /** Custom fetch implementation (defaults to global fetch). */
     fetch?: typeof globalThis.fetch;
 }
 
 /**
- * Client for the Airlock Gateway API.
+ * Client for the Airlock Integrations Gateway API.
  *
+ * Supports both Bearer token and enforcer app (ClientId/ClientSecret) authentication.
  * Uses the native `fetch` API — works in Node.js 18+ and modern browsers.
  */
 export class AirlockGatewayClient {
     private readonly baseUrl: string;
     private readonly token?: string;
+    private readonly clientId?: string;
+    private readonly clientSecret?: string;
     private readonly fetchFn: typeof globalThis.fetch;
 
     constructor(options: AirlockGatewayClientOptions) {
         this.baseUrl = options.baseUrl.replace(/\/$/, "");
         this.token = options.token;
+        this.clientId = options.clientId;
+        this.clientSecret = options.clientSecret;
         this.fetchFn = options.fetch ?? globalThis.fetch;
     }
 
@@ -104,25 +108,6 @@ export class AirlockGatewayClient {
         await this.post(`/v1/exchanges/${encodeURIComponent(requestId)}/withdraw`, undefined);
     }
 
-    // ── Acknowledgements ────────────────────────────────────────
-
-    /** POST /v1/acks — Acknowledge an inbox message. */
-    async acknowledge(msgId: string, enforcerId: string): Promise<void> {
-        const envelope: HarpEnvelope = {
-            msgId: `msg-${crypto.randomUUID()}`,
-            msgType: "ack.submit",
-            requestId: `ack-${crypto.randomUUID()}`,
-            createdAt: new Date().toISOString(),
-            sender: { enforcerId },
-            body: {
-                msgId,
-                status: "acknowledged",
-                ackAt: new Date().toISOString(),
-            },
-        };
-        await this.post("/v1/acks", envelope);
-    }
-
     // ── Pairing ─────────────────────────────────────────────────
 
     /** POST /v1/pairing/initiate — Start a new pairing session. */
@@ -130,29 +115,14 @@ export class AirlockGatewayClient {
         return this.postJson<PairingInitiateResponse>("/v1/pairing/initiate", request);
     }
 
-    /** GET /v1/pairing/resolve/{code} — Resolve a pairing code. */
-    async resolvePairing(code: string): Promise<PairingResolveResponse> {
-        return this.get<PairingResolveResponse>(`/v1/pairing/resolve/${encodeURIComponent(code)}`);
-    }
-
     /** GET /v1/pairing/{nonce}/status — Poll pairing status. */
     async getPairingStatus(nonce: string): Promise<PairingStatusResponse> {
         return this.get<PairingStatusResponse>(`/v1/pairing/${encodeURIComponent(nonce)}/status`);
     }
 
-    /** POST /v1/pairing/complete — Complete pairing from approver side. */
-    async completePairing(request: PairingCompleteRequest): Promise<PairingCompleteResponse> {
-        return this.postJson<PairingCompleteResponse>("/v1/pairing/complete", request);
-    }
-
     /** POST /v1/pairing/revoke — Revoke a pairing. */
     async revokePairing(routingToken: string): Promise<PairingRevokeResponse> {
         return this.postJson<PairingRevokeResponse>("/v1/pairing/revoke", { routingToken });
-    }
-
-    /** POST /v1/pairing/status-batch — Batch check pairing statuses. */
-    async getPairingStatusBatch(routingTokens: string[]): Promise<PairingStatusBatchResponse> {
-        return this.postJson<PairingStatusBatchResponse>("/v1/pairing/status-batch", { routingTokens });
     }
 
     // ── Presence ────────────────────────────────────────────────
@@ -162,22 +132,7 @@ export class AirlockGatewayClient {
         await this.post("/v1/presence/heartbeat", request);
     }
 
-    /** GET /v1/presence/enforcers — List online enforcers. */
-    async listEnforcers(): Promise<EnforcerPresenceRecord[]> {
-        return this.get<EnforcerPresenceRecord[]>("/v1/presence/enforcers");
-    }
-
-    /** GET /v1/presence/enforcers/{id} — Get a single enforcer's presence. */
-    async getEnforcerPresence(enforcerDeviceId: string): Promise<EnforcerPresenceRecord> {
-        return this.get<EnforcerPresenceRecord>(`/v1/presence/enforcers/${encodeURIComponent(enforcerDeviceId)}`);
-    }
-
     // ── DND (Do Not Disturb) Policies ─────────────────────────────
-
-    /** POST /v1/policy/dnd — Submit a signed DND policy object. */
-    async submitDndPolicy(policy: unknown): Promise<void> {
-        await this.post("/v1/policy/dnd", policy);
-    }
 
     /** GET /v1/policy/dnd/effective — Fetch effective DND policies for an enforcer/workspace/session. */
     async getEffectiveDndPolicies(
@@ -222,6 +177,12 @@ export class AirlockGatewayClient {
         const headers: Record<string, string> = {};
         if (this.token) {
             headers["Authorization"] = `Bearer ${this.token}`;
+        }
+        if (this.clientId) {
+            headers["X-Client-Id"] = this.clientId;
+        }
+        if (this.clientSecret) {
+            headers["X-Client-Secret"] = this.clientSecret;
         }
 
         const init: RequestInit = { method, headers };

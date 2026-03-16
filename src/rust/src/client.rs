@@ -1,4 +1,4 @@
-//! Async HTTP client for the Airlock Gateway API.
+//! Async HTTP client for the Airlock Integrations Gateway API.
 
 use crate::errors::GatewayError;
 use crate::models::*;
@@ -7,39 +7,51 @@ use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Async client for the Airlock Gateway.
+/// Async client for the Airlock Integrations Gateway.
+///
+/// Supports both Bearer token and enforcer app (ClientId/ClientSecret) auth.
 ///
 /// ```no_run
 /// # async fn demo() -> Result<(), airlock_gateway::GatewayError> {
 /// let client = airlock_gateway::AirlockGatewayClient::new(
-///     "https://gw.example.com",
+///     "https://igw.example.com",
 ///     Some("my-bearer-token"),
 /// );
-/// let request_id = client.submit_artifact(airlock_gateway::ArtifactSubmitRequest {
-///     enforcer_id: "e1".into(),
-///     artifact_hash: "abc".into(),
-///     ciphertext: airlock_gateway::CiphertextRef {
-///         alg: "aes-256-gcm".into(), data: "enc".into(),
-///         nonce: None, tag: None, aad: None,
-///     },
-///     artifact_type: None, expires_at: None,
-///     metadata: None, request_id: None,
-/// }).await?;
+/// let echo = client.echo().await?;
 /// # Ok(())
 /// # }
 /// ```
 pub struct AirlockGatewayClient {
     base_url: String,
     token: Option<String>,
+    client_id: Option<String>,
+    client_secret: Option<String>,
     http: HttpClient,
 }
 
 impl AirlockGatewayClient {
-    /// Create a new client.
+    /// Create a new client with Bearer token auth.
     pub fn new(base_url: impl Into<String>, token: Option<impl Into<String>>) -> Self {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: token.map(|t| t.into()),
+            client_id: None,
+            client_secret: None,
+            http: HttpClient::new(),
+        }
+    }
+
+    /// Create a new client with enforcer app (ClientId/ClientSecret) auth.
+    pub fn with_credentials(
+        base_url: impl Into<String>,
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
+    ) -> Self {
+        Self {
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            token: None,
+            client_id: Some(client_id.into()),
+            client_secret: Some(client_secret.into()),
             http: HttpClient::new(),
         }
     }
@@ -53,6 +65,8 @@ impl AirlockGatewayClient {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: token.map(|t| t.into()),
+            client_id: None,
+            client_secret: None,
             http,
         }
     }
@@ -124,9 +138,7 @@ impl AirlockGatewayClient {
         );
 
         let mut req_builder = self.http.get(&url);
-        if let Some(token) = &self.token {
-            req_builder = req_builder.bearer_auth(token);
-        }
+        req_builder = self.apply_auth(req_builder);
 
         let response = req_builder.send().await?;
 
@@ -151,29 +163,6 @@ impl AirlockGatewayClient {
         .await
     }
 
-    // ── Acknowledgements ────────────────────────────────────────
-
-    /// POST /v1/acks — Acknowledge an inbox message.
-    pub async fn acknowledge(
-        &self,
-        msg_id: &str,
-        enforcer_id: &str,
-    ) -> Result<(), GatewayError> {
-        let envelope = json!({
-            "msgId": format!("msg-{}", Uuid::new_v4()),
-            "msgType": "ack.submit",
-            "requestId": format!("ack-{}", Uuid::new_v4()),
-            "createdAt": chrono::Utc::now().to_rfc3339(),
-            "sender": { "enforcerId": enforcer_id },
-            "body": {
-                "msgId": msg_id,
-                "status": "acknowledged",
-                "ackAt": chrono::Utc::now().to_rfc3339(),
-            }
-        });
-        self.post_void("/v1/acks", &envelope).await
-    }
-
     // ── Pairing ─────────────────────────────────────────────────
 
     /// POST /v1/pairing/initiate — Start a new pairing session.
@@ -184,28 +173,12 @@ impl AirlockGatewayClient {
         self.post_json("/v1/pairing/initiate", request).await
     }
 
-    /// GET /v1/pairing/resolve/{code} — Resolve a pairing code.
-    pub async fn resolve_pairing(
-        &self,
-        code: &str,
-    ) -> Result<PairingResolveResponse, GatewayError> {
-        self.get(&format!("/v1/pairing/resolve/{}", code)).await
-    }
-
     /// GET /v1/pairing/{nonce}/status — Poll pairing status.
     pub async fn get_pairing_status(
         &self,
         nonce: &str,
     ) -> Result<PairingStatusResponse, GatewayError> {
         self.get(&format!("/v1/pairing/{}/status", nonce)).await
-    }
-
-    /// POST /v1/pairing/complete — Complete pairing from approver side.
-    pub async fn complete_pairing(
-        &self,
-        request: &PairingCompleteRequest,
-    ) -> Result<PairingCompleteResponse, GatewayError> {
-        self.post_json("/v1/pairing/complete", request).await
     }
 
     /// POST /v1/pairing/revoke — Revoke a pairing.
@@ -215,18 +188,6 @@ impl AirlockGatewayClient {
     ) -> Result<PairingRevokeResponse, GatewayError> {
         self.post_json("/v1/pairing/revoke", &json!({"routingToken": routing_token}))
             .await
-    }
-
-    /// POST /v1/pairing/status-batch — Batch check pairing statuses.
-    pub async fn get_pairing_status_batch(
-        &self,
-        routing_tokens: &[String],
-    ) -> Result<PairingStatusBatchResponse, GatewayError> {
-        self.post_json(
-            "/v1/pairing/status-batch",
-            &json!({"routingTokens": routing_tokens}),
-        )
-        .await
     }
 
     // ── Presence ────────────────────────────────────────────────
@@ -239,31 +200,53 @@ impl AirlockGatewayClient {
         self.post_void("/v1/presence/heartbeat", request).await
     }
 
-    /// GET /v1/presence/enforcers — List online enforcers.
-    pub async fn list_enforcers(&self) -> Result<Vec<EnforcerPresenceRecord>, GatewayError> {
-        self.get("/v1/presence/enforcers").await
-    }
+    // ── DND (Do Not Disturb) Policies ────────────────────────────
 
-    /// GET /v1/presence/enforcers/{id} — Get a single enforcer's presence.
-    pub async fn get_enforcer_presence(
+    /// GET /v1/policy/dnd/effective — Fetch effective DND policies.
+    pub async fn get_effective_dnd_policies(
         &self,
-        enforcer_device_id: &str,
-    ) -> Result<EnforcerPresenceRecord, GatewayError> {
-        self.get(&format!("/v1/presence/enforcers/{}", enforcer_device_id))
-            .await
+        enforcer_id: &str,
+        workspace_id: &str,
+        session_id: Option<&str>,
+    ) -> Result<DndEffectiveResponse, GatewayError> {
+        let mut params = vec![
+            ("enforcerId", enforcer_id.to_string()),
+            ("workspaceId", workspace_id.to_string()),
+        ];
+        if let Some(sid) = session_id {
+            params.push(("sessionId", sid.to_string()));
+        }
+
+        let query: String = params
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join("&");
+
+        self.get(&format!("/v1/policy/dnd/effective?{}", query)).await
     }
 
     // ── HTTP Helpers ────────────────────────────────────────────
+
+    fn apply_auth(&self, mut req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(token) = &self.token {
+            req = req.bearer_auth(token);
+        }
+        if let Some(client_id) = &self.client_id {
+            req = req.header("X-Client-Id", client_id);
+        }
+        if let Some(client_secret) = &self.client_secret {
+            req = req.header("X-Client-Secret", client_secret);
+        }
+        req
+    }
 
     async fn get<T: serde::de::DeserializeOwned>(
         &self,
         path: &str,
     ) -> Result<T, GatewayError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut req = self.http.get(&url);
-        if let Some(token) = &self.token {
-            req = req.bearer_auth(token);
-        }
+        let req = self.apply_auth(self.http.get(&url));
 
         let response = req.send().await?;
         let status = response.status().as_u16();
@@ -278,10 +261,7 @@ impl AirlockGatewayClient {
         payload: &impl serde::Serialize,
     ) -> Result<(), GatewayError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut req = self.http.post(&url).json(payload);
-        if let Some(token) = &self.token {
-            req = req.bearer_auth(token);
-        }
+        let req = self.apply_auth(self.http.post(&url).json(payload));
 
         let response = req.send().await?;
         let status = response.status().as_u16();
@@ -296,10 +276,7 @@ impl AirlockGatewayClient {
         payload: &impl serde::Serialize,
     ) -> Result<T, GatewayError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut req = self.http.post(&url).json(payload);
-        if let Some(token) = &self.token {
-            req = req.bearer_auth(token);
-        }
+        let req = self.apply_auth(self.http.post(&url).json(payload));
 
         let response = req.send().await?;
         let status = response.status().as_u16();

@@ -1,6 +1,6 @@
 # airlock-gateway-sdk-go
 
-A Go client SDK for the Airlock Gateway API. Uses the standard library only — no external dependencies.
+A Go client SDK for the Airlock Integrations Gateway API. Uses the standard library only — no external dependencies.
 
 ## Installation
 
@@ -9,6 +9,8 @@ go get github.com/AirlockHQ/airlock-gateway-sdk-go/airlock
 ```
 
 ## Quick Start
+
+### With Bearer Token
 
 ```go
 package main
@@ -21,7 +23,7 @@ import (
 )
 
 func main() {
-    client := airlock.NewClient("https://gw.example.com", "your-token")
+    client := airlock.NewClient("https://igw.airlocks.io", "your-token")
 
     // Submit an artifact for approval
     requestID, err := client.SubmitArtifact(airlock.ArtifactSubmitRequest{
@@ -50,6 +52,16 @@ func main() {
 }
 ```
 
+### With Enforcer App Credentials
+
+```go
+client := airlock.NewClientWithCredentials(
+    "https://igw.airlocks.io",
+    "your-client-id",
+    "your-client-secret",
+)
+```
+
 ## API Reference
 
 | Method | Description |
@@ -59,18 +71,11 @@ func main() {
 | `GetExchangeStatus(requestID)` | Get exchange status |
 | `WaitForDecision(requestID, timeout)` | Long-poll for decision |
 | `WithdrawExchange(requestID)` | Withdraw pending exchange |
-| `Acknowledge(msgID, enforcerID)` | Acknowledge inbox message |
 | `InitiatePairing(req)` | Start pairing session |
-| `ResolvePairing(code)` | Resolve pairing code |
 | `GetPairingStatus(nonce)` | Poll pairing status |
-| `CompletePairing(req)` | Complete pairing |
 | `RevokePairing(routingToken)` | Revoke a pairing |
-| `GetPairingStatusBatch(tokens)` | Batch check pairings |
 | `SendHeartbeat(req)` | Presence heartbeat |
-| `ListEnforcers()` | List online enforcers |
-| `GetEnforcerPresence(id)` | Get enforcer presence |
-| `SubmitDndPolicy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
-| `GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
+| `GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID)` | Fetch effective DND policies |
 
 ## Error Handling
 

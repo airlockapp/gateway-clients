@@ -1,6 +1,6 @@
 # Airlock.Gateway.Sdk (.NET)
 
-A .NET Standard 2.0 client SDK for the Airlock Gateway API.
+A .NET Standard 2.0 client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
@@ -10,19 +10,27 @@ dotnet add package Airlock.Gateway.Sdk
 
 ## Quick Start
 
+### With Bearer Token
+
 ```csharp
 using Airlock.Gateway.Sdk;
 using Airlock.Gateway.Sdk.Models;
 
-var httpClient = new HttpClient
-{
-    BaseAddress = new Uri("https://gw.example.com")
-};
-httpClient.DefaultRequestHeaders.Authorization =
-    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "your-token");
+var client = new AirlockGatewayClient("https://igw.airlocks.io", bearerToken: "your-jwt-token");
+```
 
-var client = new AirlockGatewayClient(httpClient);
+### With Enforcer App Credentials
 
+```csharp
+var client = new AirlockGatewayClient(
+    "https://igw.airlocks.io",
+    clientId: "your-client-id",
+    clientSecret: "your-client-secret");
+```
+
+### Submit and Poll
+
+```csharp
 // Submit an artifact for approval
 var requestId = await client.SubmitArtifactAsync(new ArtifactSubmitRequest
 {
@@ -58,18 +66,11 @@ if (decision?.Body?.IsApproved == true)
 | `GetExchangeStatusAsync(requestId)` | Get exchange status |
 | `WaitForDecisionAsync(requestId, timeout)` | Long-poll for decision |
 | `WithdrawExchangeAsync(requestId)` | Withdraw pending exchange |
-| `AcknowledgeAsync(msgId, enforcerId)` | Acknowledge inbox message |
 | `InitiatePairingAsync(request)` | Start pairing session |
-| `ResolvePairingAsync(code)` | Resolve pairing code |
 | `GetPairingStatusAsync(nonce)` | Poll pairing status |
-| `CompletePairingAsync(request)` | Complete pairing |
 | `RevokePairingAsync(routingToken)` | Revoke a pairing |
-| `GetPairingStatusBatchAsync(tokens)` | Batch check pairings |
 | `SendHeartbeatAsync(request)` | Presence heartbeat |
-| `ListEnforcersAsync()` | List online enforcers |
-| `GetEnforcerPresenceAsync(id)` | Get enforcer presence |
-| `SubmitDndPolicyAsync(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
-| `GetEffectiveDndPoliciesAsync(enforcerId, workspaceId, sessionId)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
+| `GetEffectiveDndPoliciesAsync(enforcerId, workspaceId, sessionId)` | Fetch effective DND policies |
 
 ## Error Handling
 

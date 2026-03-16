@@ -11,8 +11,8 @@ using Airlock.Gateway.Sdk.Models;
 namespace Airlock.Gateway.Sdk
 {
     /// <summary>
-    /// HTTP client for the Airlock Gateway API.
-    /// Wraps all enforcer-side endpoints with typed request/response models.
+    /// HTTP client for the Airlock Integrations Gateway API.
+    /// Supports both Bearer token and ClientId/ClientSecret authentication.
     /// </summary>
     public class AirlockGatewayClient : IAirlockGatewayClient
     {
@@ -28,8 +28,8 @@ namespace Airlock.Gateway.Sdk
         };
 
         /// <summary>
-        /// Creates a new AirlockGatewayClient.
-        /// The HttpClient should be pre-configured with BaseAddress and Authorization header.
+        /// Creates a new AirlockGatewayClient with a pre-configured HttpClient.
+        /// The HttpClient should be configured with BaseAddress and auth headers.
         /// </summary>
         public AirlockGatewayClient(HttpClient httpClient)
         {
@@ -37,7 +37,7 @@ namespace Airlock.Gateway.Sdk
         }
 
         /// <summary>
-        /// Creates a new AirlockGatewayClient with the specified base URL and optional Bearer token.
+        /// Creates a new AirlockGatewayClient with Bearer token authentication.
         /// </summary>
         public AirlockGatewayClient(string baseUrl, string? bearerToken = null)
         {
@@ -51,6 +51,29 @@ namespace Airlock.Gateway.Sdk
                 _http.DefaultRequestHeaders.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
             }
+        }
+
+        /// <summary>
+        /// Creates a new AirlockGatewayClient with enforcer app (ClientId/ClientSecret) authentication.
+        /// Used for third-party enforcer apps registered through the Developer Programme.
+        /// </summary>
+        /// <param name="baseUrl">Integrations Gateway URL (e.g., https://igw.airlocks.io)</param>
+        /// <param name="clientId">The enforcer app's Client ID (X-Client-Id header)</param>
+        /// <param name="clientSecret">The enforcer app's Client Secret (X-Client-Secret header)</param>
+        public AirlockGatewayClient(string baseUrl, string clientId, string clientSecret)
+        {
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentException("Client ID is required.", nameof(clientId));
+            if (string.IsNullOrWhiteSpace(clientSecret))
+                throw new ArgumentException("Client Secret is required.", nameof(clientSecret));
+
+            _http = new HttpClient
+            {
+                BaseAddress = new Uri(baseUrl.TrimEnd('/')),
+                Timeout = TimeSpan.FromSeconds(90)
+            };
+            _http.DefaultRequestHeaders.Add("X-Client-Id", clientId);
+            _http.DefaultRequestHeaders.Add("X-Client-Secret", clientSecret);
         }
 
         // ── Discovery ───────────────────────────────────────────────
@@ -124,29 +147,6 @@ namespace Airlock.Gateway.Sdk
                 .ConfigureAwait(false);
         }
 
-        // ── Acknowledgements ────────────────────────────────────────
-
-        /// <inheritdoc />
-        public async Task AcknowledgeAsync(string msgId, string enforcerId, CancellationToken ct = default)
-        {
-            var envelope = new HarpEnvelope
-            {
-                MsgId = "msg-" + Guid.NewGuid().ToString("N"),
-                MsgType = "ack.submit",
-                RequestId = "ack-" + Guid.NewGuid().ToString("N"),
-                CreatedAt = DateTimeOffset.UtcNow,
-                Sender = new SenderInfo { EnforcerId = enforcerId },
-                Body = new AckSubmitBody
-                {
-                    MsgId = msgId,
-                    Status = "acknowledged",
-                    AckAt = DateTimeOffset.UtcNow
-                }
-            };
-
-            await PostAsync("/v1/acks", envelope, ct).ConfigureAwait(false);
-        }
-
         // ── Pairing ─────────────────────────────────────────────────
 
         /// <inheritdoc />
@@ -158,24 +158,9 @@ namespace Airlock.Gateway.Sdk
         }
 
         /// <inheritdoc />
-        public async Task<PairingResolveResponse> ResolvePairingAsync(string code, CancellationToken ct = default)
-        {
-            return await GetAsync<PairingResolveResponse>($"/v1/pairing/resolve/{Uri.EscapeDataString(code)}", ct)
-                .ConfigureAwait(false);
-        }
-
-        /// <inheritdoc />
         public async Task<PairingStatusResponse> GetPairingStatusAsync(string nonce, CancellationToken ct = default)
         {
             return await GetAsync<PairingStatusResponse>($"/v1/pairing/{Uri.EscapeDataString(nonce)}/status", ct)
-                .ConfigureAwait(false);
-        }
-
-        /// <inheritdoc />
-        public async Task<PairingCompleteResponse> CompletePairingAsync(
-            PairingCompleteRequest request, CancellationToken ct = default)
-        {
-            return await PostAsync<PairingCompleteResponse>("/v1/pairing/complete", request, ct)
                 .ConfigureAwait(false);
         }
 
@@ -187,15 +172,6 @@ namespace Airlock.Gateway.Sdk
                 .ConfigureAwait(false);
         }
 
-        /// <inheritdoc />
-        public async Task<PairingStatusBatchResponse> GetPairingStatusBatchAsync(
-            List<string> routingTokens, CancellationToken ct = default)
-        {
-            var request = new PairingStatusBatchRequest { RoutingTokens = routingTokens };
-            return await PostAsync<PairingStatusBatchResponse>("/v1/pairing/status-batch", request, ct)
-                .ConfigureAwait(false);
-        }
-
         // ── Presence ────────────────────────────────────────────────
 
         /// <inheritdoc />
@@ -204,30 +180,7 @@ namespace Airlock.Gateway.Sdk
             await PostAsync("/v1/presence/heartbeat", request, ct).ConfigureAwait(false);
         }
 
-        /// <inheritdoc />
-        public async Task<List<EnforcerPresenceRecord>> ListEnforcersAsync(CancellationToken ct = default)
-        {
-            return await GetAsync<List<EnforcerPresenceRecord>>("/v1/presence/enforcers", ct)
-                .ConfigureAwait(false);
-        }
-
-        /// <inheritdoc />
-        public async Task<EnforcerPresenceRecord> GetEnforcerPresenceAsync(
-            string enforcerDeviceId, CancellationToken ct = default)
-        {
-            return await GetAsync<EnforcerPresenceRecord>(
-                $"/v1/presence/enforcers/{Uri.EscapeDataString(enforcerDeviceId)}", ct)
-                .ConfigureAwait(false);
-        }
-
         // ── DND (Do Not Disturb) Policies ───────────────────────────
-
-        /// <inheritdoc />
-        public async Task SubmitDndPolicyAsync(object policy, CancellationToken ct = default)
-        {
-            if (policy is null) throw new ArgumentNullException(nameof(policy));
-            await PostAsync("/v1/policy/dnd", policy, ct).ConfigureAwait(false);
-        }
 
         /// <inheritdoc />
         public async Task<DndEffectiveResponse> GetEffectiveDndPoliciesAsync(

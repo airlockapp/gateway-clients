@@ -1,6 +1,6 @@
 # airlock-gateway (Python)
 
-An async Python client SDK for the Airlock Gateway API.
+An async Python client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
@@ -9,6 +9,8 @@ pip install airlock-gateway
 ```
 
 ## Quick Start
+
+### With Bearer Token
 
 ```python
 import asyncio
@@ -21,7 +23,7 @@ from airlock_gateway import (
 
 async def main():
     async with AirlockGatewayClient(
-        "https://gw.example.com", token="your-token"
+        "https://igw.airlocks.io", token="your-token"
     ) as client:
         # Submit an artifact for approval
         request_id = await client.submit_artifact(
@@ -47,6 +49,17 @@ async def main():
 asyncio.run(main())
 ```
 
+### With Enforcer App Credentials
+
+```python
+async with AirlockGatewayClient(
+    "https://igw.airlocks.io",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+) as client:
+    echo = await client.echo()
+```
+
 ## API Reference
 
 | Method | Description |
@@ -56,18 +69,11 @@ asyncio.run(main())
 | `get_exchange_status(request_id)` | Get exchange status |
 | `wait_for_decision(request_id, timeout)` | Long-poll for decision |
 | `withdraw_exchange(request_id)` | Withdraw pending exchange |
-| `acknowledge(msg_id, enforcer_id)` | Acknowledge inbox message |
 | `initiate_pairing(request)` | Start pairing session |
-| `resolve_pairing(code)` | Resolve pairing code |
 | `get_pairing_status(nonce)` | Poll pairing status |
-| `complete_pairing(request)` | Complete pairing |
 | `revoke_pairing(routing_token)` | Revoke a pairing |
-| `get_pairing_status_batch(tokens)` | Batch check pairings |
 | `send_heartbeat(request)` | Presence heartbeat |
-| `list_enforcers()` | List online enforcers |
-| `get_enforcer_presence(id)` | Get enforcer presence |
-| `submit_dnd_policy(policy)` | Submit signed DND policy (`POST /v1/policy/dnd`) |
-| `get_effective_dnd_policies(enforcer_id, workspace_id, session_id=None)` | Fetch effective DND policies (`GET /v1/policy/dnd/effective`) |
+| `get_effective_dnd_policies(enforcer_id, workspace_id, session_id=None)` | Fetch effective DND policies |
 
 ## Error Handling
 

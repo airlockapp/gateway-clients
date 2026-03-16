@@ -1,4 +1,4 @@
-"""Async HTTP client for the Airlock Gateway API."""
+"""Async HTTP client for the Airlock Integrations Gateway API."""
 
 from __future__ import annotations
 
@@ -14,15 +14,10 @@ from airlock_gateway.models import (
     DecisionDeliverEnvelope,
     DndEffectiveResponse,
     EchoResponse,
-    EnforcerPresenceRecord,
     ExchangeStatusResponse,
-    PairingCompleteRequest,
-    PairingCompleteResponse,
     PairingInitiateRequest,
     PairingInitiateResponse,
-    PairingResolveResponse,
     PairingRevokeResponse,
-    PairingStatusBatchResponse,
     PairingStatusResponse,
     PresenceHeartbeatRequest,
 )
@@ -30,13 +25,24 @@ from airlock_gateway.models import (
 
 class AirlockGatewayClient:
     """
-    Async HTTP client for the Airlock Gateway.
+    Async HTTP client for the Airlock Integrations Gateway.
 
-    Usage::
+    Supports both Bearer token and enforcer app (ClientId/ClientSecret) auth.
 
-        async with AirlockGatewayClient("https://gw.example.com", token="...") as client:
+    Usage with Bearer token::
+
+        async with AirlockGatewayClient("https://igw.example.com", token="...") as client:
             request_id = await client.submit_artifact(request)
             decision = await client.wait_for_decision(request_id)
+
+    Usage with ClientId/ClientSecret::
+
+        async with AirlockGatewayClient(
+            "https://igw.example.com",
+            client_id="my-client-id",
+            client_secret="my-client-secret",
+        ) as client:
+            echo = await client.echo()
     """
 
     def __init__(
@@ -44,12 +50,18 @@ class AirlockGatewayClient:
         base_url: str,
         *,
         token: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
         timeout: float = 90.0,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         headers: Dict[str, str] = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        if client_id:
+            headers["X-Client-Id"] = client_id
+        if client_secret:
+            headers["X-Client-Secret"] = client_secret
 
         if http_client is not None:
             self._client = http_client
@@ -136,24 +148,6 @@ class AirlockGatewayClient:
         """POST /v1/exchanges/{requestId}/withdraw — Withdraw a pending exchange."""
         await self._post(f"/v1/exchanges/{request_id}/withdraw", None)
 
-    # ── Acknowledgements ─────────────────────────────────────────
-
-    async def acknowledge(self, msg_id: str, enforcer_id: str) -> None:
-        """POST /v1/acks — Acknowledge an inbox message."""
-        envelope = {
-            "msgId": f"msg-{uuid.uuid4().hex}",
-            "msgType": "ack.submit",
-            "requestId": f"ack-{uuid.uuid4().hex}",
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-            "sender": {"enforcerId": enforcer_id},
-            "body": {
-                "msgId": msg_id,
-                "status": "acknowledged",
-                "ackAt": datetime.now(timezone.utc).isoformat(),
-            },
-        }
-        await self._post("/v1/acks", envelope)
-
     # ── Pairing ──────────────────────────────────────────────────
 
     async def initiate_pairing(
@@ -166,25 +160,10 @@ class AirlockGatewayClient:
         )
         return PairingInitiateResponse.model_validate(data)
 
-    async def resolve_pairing(self, code: str) -> PairingResolveResponse:
-        """GET /v1/pairing/resolve/{code} — Resolve a pairing code."""
-        data = await self._get(f"/v1/pairing/resolve/{code}")
-        return PairingResolveResponse.model_validate(data)
-
     async def get_pairing_status(self, nonce: str) -> PairingStatusResponse:
         """GET /v1/pairing/{nonce}/status — Poll pairing status."""
         data = await self._get(f"/v1/pairing/{nonce}/status")
         return PairingStatusResponse.model_validate(data)
-
-    async def complete_pairing(
-        self, request: PairingCompleteRequest
-    ) -> PairingCompleteResponse:
-        """POST /v1/pairing/complete — Complete pairing from approver side."""
-        data = await self._post_json(
-            "/v1/pairing/complete",
-            request.model_dump(by_alias=True, exclude_none=True),
-        )
-        return PairingCompleteResponse.model_validate(data)
 
     async def revoke_pairing(self, routing_token: str) -> PairingRevokeResponse:
         """POST /v1/pairing/revoke — Revoke a pairing."""
@@ -192,15 +171,6 @@ class AirlockGatewayClient:
             "/v1/pairing/revoke", {"routingToken": routing_token}
         )
         return PairingRevokeResponse.model_validate(data)
-
-    async def get_pairing_status_batch(
-        self, routing_tokens: List[str]
-    ) -> PairingStatusBatchResponse:
-        """POST /v1/pairing/status-batch — Batch check pairing statuses."""
-        data = await self._post_json(
-            "/v1/pairing/status-batch", {"routingTokens": routing_tokens}
-        )
-        return PairingStatusBatchResponse.model_validate(data)
 
     # ── Presence ─────────────────────────────────────────────────
 
@@ -211,23 +181,7 @@ class AirlockGatewayClient:
             request.model_dump(by_alias=True, exclude_none=True),
         )
 
-    async def list_enforcers(self) -> List[EnforcerPresenceRecord]:
-        """GET /v1/presence/enforcers — List online enforcers."""
-        data = await self._get("/v1/presence/enforcers")
-        return [EnforcerPresenceRecord.model_validate(item) for item in data]
-
-    async def get_enforcer_presence(
-        self, enforcer_device_id: str
-    ) -> EnforcerPresenceRecord:
-        """GET /v1/presence/enforcers/{id} — Get a single enforcer's presence."""
-        data = await self._get(f"/v1/presence/enforcers/{enforcer_device_id}")
-        return EnforcerPresenceRecord.model_validate(data)
-
     # ── DND (Do Not Disturb) Policies ──────────────────────────────
-
-    async def submit_dnd_policy(self, policy: Dict[str, Any]) -> None:
-        """POST /v1/policy/dnd — Submit a signed DND policy object."""
-        await self._post_json("/v1/policy/dnd", policy)
 
     async def get_effective_dnd_policies(
         self,

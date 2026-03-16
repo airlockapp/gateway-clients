@@ -95,19 +95,4 @@ namespace Airlock.Gateway.Sdk.Models
         [JsonPropertyName("body")]
         public DecisionDeliverBody? Body { get; set; }
     }
-
-    /// <summary>
-    /// Ack submission body.
-    /// </summary>
-    public class AckSubmitBody
-    {
-        [JsonPropertyName("msgId")]
-        public string MsgId { get; set; } = "";
-
-        [JsonPropertyName("status")]
-        public string Status { get; set; } = "acknowledged";
-
-        [JsonPropertyName("ackAt")]
-        public DateTimeOffset AckAt { get; set; } = DateTimeOffset.UtcNow;
-    }
 }

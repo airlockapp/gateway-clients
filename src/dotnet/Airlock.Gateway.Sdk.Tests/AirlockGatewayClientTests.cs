@@ -13,6 +13,16 @@ public class AirlockGatewayClientTests
         return (new AirlockGatewayClient(httpClient), handler);
     }
 
+    private static (AirlockGatewayClient client, MockHttpHandler handler) CreateClientWithCredentials()
+    {
+        var handler = new MockHttpHandler();
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw.test") };
+        httpClient.DefaultRequestHeaders.Add("X-Client-Id", "test-id");
+        httpClient.DefaultRequestHeaders.Add("X-Client-Secret", "test-secret");
+        return (new AirlockGatewayClient(httpClient), handler);
+    }
+
+
     // ── Echo ─────────────────────────────────────────────────────
 
     [Fact]
@@ -304,23 +314,6 @@ public class AirlockGatewayClientTests
         Assert.True(ex.IsConflict);
     }
 
-    // ── Acknowledge ─────────────────────────────────────────────
-
-    [Fact]
-    public async Task AcknowledgeAsync_PostsCorrectEnvelope()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new { msgType = "ack.accepted" });
-
-        await client.AcknowledgeAsync("msg-123", "enforcer-1");
-
-        Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Post, handler.Requests[0].Method);
-        Assert.Equal("/v1/acks", handler.Requests[0].Uri.AbsolutePath);
-        Assert.Contains("ack.submit", handler.Requests[0].Body);
-        Assert.Contains("msg-123", handler.Requests[0].Body);
-    }
-
     // ── Pairing ─────────────────────────────────────────────────
 
     [Fact]
@@ -348,26 +341,6 @@ public class AirlockGatewayClientTests
     }
 
     [Fact]
-    public async Task ResolvePairingAsync_ReturnsSessionInfo()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new
-        {
-            pairingNonce = "nonce-abc",
-            deviceId = "dev-1",
-            x25519PublicKey = "pubkey",
-            enforcerLabel = "Cursor",
-            workspaceName = "my-project"
-        });
-
-        var result = await client.ResolvePairingAsync("ABC123");
-
-        Assert.Equal("nonce-abc", result.PairingNonce);
-        Assert.Equal("Cursor", result.EnforcerLabel);
-        Assert.Equal("/v1/pairing/resolve/ABC123", handler.Requests[0].Uri.AbsolutePath);
-    }
-
-    [Fact]
     public async Task GetPairingStatusAsync_ReturnsState()
     {
         var (client, handler) = CreateClient();
@@ -381,27 +354,6 @@ public class AirlockGatewayClientTests
         var result = await client.GetPairingStatusAsync("nonce-abc");
 
         Assert.Equal("Completed", result.State);
-        Assert.Equal("rt-xyz", result.RoutingToken);
-    }
-
-    [Fact]
-    public async Task CompletePairingAsync_ReturnsRoutingToken()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new
-        {
-            status = "completed",
-            pairingNonce = "nonce-abc",
-            routingToken = "rt-xyz"
-        });
-
-        var result = await client.CompletePairingAsync(new PairingCompleteRequest
-        {
-            PairingNonce = "nonce-abc",
-            ResponseJson = "{}"
-        });
-
-        Assert.Equal("completed", result.Status);
         Assert.Equal("rt-xyz", result.RoutingToken);
     }
 
@@ -420,44 +372,6 @@ public class AirlockGatewayClientTests
         Assert.Equal("revoked", result.Status);
         Assert.Equal("enforcer-1", result.EnforcerId);
         Assert.Equal("/v1/pairing/revoke", handler.Requests[0].Uri.AbsolutePath);
-    }
-
-    [Fact]
-    public async Task GetPairingStatusBatchAsync_ReturnsBatchStatuses()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new
-        {
-            statuses = new Dictionary<string, string>
-            {
-                ["rt-1"] = "Completed",
-                ["rt-2"] = "Revoked",
-                ["rt-3"] = "Unknown"
-            }
-        });
-
-        var result = await client.GetPairingStatusBatchAsync(["rt-1", "rt-2", "rt-3"]);
-
-        Assert.Equal(3, result.Statuses.Count);
-        Assert.Equal("Completed", result.Statuses["rt-1"]);
-        Assert.Equal("Revoked", result.Statuses["rt-2"]);
-        Assert.Equal("Unknown", result.Statuses["rt-3"]);
-    }
-
-    [Fact]
-    public async Task ResolvePairingAsync_ThrowsOnExpired()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.Gone, new
-        {
-            error = "expired",
-            message = "Pairing code expired"
-        });
-
-        var ex = await Assert.ThrowsAsync<AirlockGatewayException>(() =>
-            client.ResolvePairingAsync("OLDCODE"));
-
-        Assert.True(ex.IsExpired);
     }
 
     // ── Presence ────────────────────────────────────────────────
@@ -480,41 +394,7 @@ public class AirlockGatewayClientTests
         Assert.Contains("enforcer-1", handler.Requests[0].Body);
     }
 
-    [Fact]
-    public async Task ListEnforcersAsync_ReturnsRecords()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new[]
-        {
-            new { enforcerDeviceId = "e1", status = "online", workspaceName = "proj1" },
-            new { enforcerDeviceId = "e2", status = "online", workspaceName = "proj2" }
-        });
-
-        var result = await client.ListEnforcersAsync();
-
-        Assert.Equal(2, result.Count);
-        Assert.Equal("e1", result[0].EnforcerDeviceId);
-        Assert.Equal("proj2", result[1].WorkspaceName);
-    }
-
-    [Fact]
-    public async Task GetEnforcerPresenceAsync_ReturnsSingleRecord()
-    {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.OK, new
-        {
-            enforcerDeviceId = "e1",
-            status = "online",
-            workspaceName = "proj1",
-            enforcerLabel = "Cursor"
-        });
-
-        var result = await client.GetEnforcerPresenceAsync("e1");
-
-        Assert.Equal("e1", result.EnforcerDeviceId);
-        Assert.Equal("online", result.Status);
-        Assert.Equal("/v1/presence/enforcers/e1", handler.Requests[0].Uri.AbsolutePath);
-    }
+    // ── DND Policies ────────────────────────────────────────────
 
     [Fact]
     public async Task GetEffectiveDndPoliciesAsync_ReturnsPolicies()
@@ -545,19 +425,28 @@ public class AirlockGatewayClientTests
         Assert.Equal("approve_all", resp.Body[0].PolicyMode);
     }
 
+    // ── ClientId/Secret Auth ────────────────────────────────────
+
     [Fact]
-    public async Task GetEnforcerPresenceAsync_ThrowsOnNotFound()
+    public async Task ClientWithCredentials_SetsClientIdAndSecretHeaders()
     {
-        var (client, handler) = CreateClient();
-        handler.Enqueue(HttpStatusCode.NotFound, new
+        var (client, handler) = CreateClientWithCredentials();
+        handler.Enqueue(HttpStatusCode.OK, new
         {
-            error = "Enforcer 'e-unknown' not found"
+            utc = "2025-01-01T00:00:00Z",
+            local = "2025-01-01T03:00:00+03:00",
+            timezone = "UTC",
+            offsetMinutes = 0
         });
 
-        var ex = await Assert.ThrowsAsync<AirlockGatewayException>(() =>
-            client.GetEnforcerPresenceAsync("e-unknown"));
+        await client.EchoAsync();
 
-        Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
+        Assert.Single(handler.Requests);
+        var req = handler.Requests[0];
+        Assert.True(req.Headers.ContainsKey("X-Client-Id"), "X-Client-Id header missing");
+        Assert.Equal("test-id", req.Headers["X-Client-Id"]);
+        Assert.True(req.Headers.ContainsKey("X-Client-Secret"), "X-Client-Secret header missing");
+        Assert.Equal("test-secret", req.Headers["X-Client-Secret"]);
     }
 
     // ── Error handling edge cases ───────────────────────────────

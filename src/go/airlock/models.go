@@ -108,25 +108,16 @@ type ExchangeStatusResponse struct {
 	Body      *ExchangeStatusBody `json:"body,omitempty"`
 }
 
-// ── Ack ─────────────────────────────────────────────────────────
-
-// AckSubmitBody is the body of an ack.submit envelope.
-type AckSubmitBody struct {
-	MsgID  string `json:"msgId"`
-	Status string `json:"status"`
-	AckAt  string `json:"ackAt"`
-}
-
 // ── Pairing ─────────────────────────────────────────────────────
 
 // PairingInitiateRequest is the request body for POST /v1/pairing/initiate.
 type PairingInitiateRequest struct {
-	DeviceID       string `json:"deviceId"`
-	EnforcerID     string `json:"enforcerId"`
-	GatewayURL     string `json:"gatewayUrl,omitempty"`
+	DeviceID        string `json:"deviceId"`
+	EnforcerID      string `json:"enforcerId"`
+	GatewayURL      string `json:"gatewayUrl,omitempty"`
 	X25519PublicKey string `json:"x25519PublicKey,omitempty"`
-	EnforcerLabel  string `json:"enforcerLabel,omitempty"`
-	WorkspaceName  string `json:"workspaceName,omitempty"`
+	EnforcerLabel   string `json:"enforcerLabel,omitempty"`
+	WorkspaceName   string `json:"workspaceName,omitempty"`
 }
 
 // PairingInitiateResponse is the response from POST /v1/pairing/initiate.
@@ -138,17 +129,6 @@ type PairingInitiateResponse struct {
 	ExpiresAt    string `json:"expiresAt,omitempty"`
 }
 
-// PairingResolveResponse is the response from GET /v1/pairing/resolve/{code}.
-type PairingResolveResponse struct {
-	PairingNonce    string `json:"pairingNonce"`
-	DeviceID        string `json:"deviceId"`
-	GatewayURL      string `json:"gatewayUrl,omitempty"`
-	ExpiresAt       string `json:"expiresAt,omitempty"`
-	X25519PublicKey string `json:"x25519PublicKey,omitempty"`
-	EnforcerLabel   string `json:"enforcerLabel,omitempty"`
-	WorkspaceName   string `json:"workspaceName,omitempty"`
-}
-
 // PairingStatusResponse is the response from GET /v1/pairing/{nonce}/status.
 type PairingStatusResponse struct {
 	PairingNonce string `json:"pairingNonce"`
@@ -158,28 +138,10 @@ type PairingStatusResponse struct {
 	ExpiresAt    string `json:"expiresAt,omitempty"`
 }
 
-// PairingCompleteRequest is the request body for POST /v1/pairing/complete.
-type PairingCompleteRequest struct {
-	PairingNonce string `json:"pairingNonce"`
-	ResponseJSON string `json:"responseJson,omitempty"`
-}
-
-// PairingCompleteResponse is the response from POST /v1/pairing/complete.
-type PairingCompleteResponse struct {
-	Status       string `json:"status"`
-	PairingNonce string `json:"pairingNonce"`
-	RoutingToken string `json:"routingToken,omitempty"`
-}
-
 // PairingRevokeResponse is the response from POST /v1/pairing/revoke.
 type PairingRevokeResponse struct {
 	Status     string `json:"status"`
 	EnforcerID string `json:"enforcerId,omitempty"`
-}
-
-// PairingStatusBatchResponse is the response from POST /v1/pairing/status-batch.
-type PairingStatusBatchResponse struct {
-	Statuses map[string]string `json:"statuses"`
 }
 
 // ── Presence ────────────────────────────────────────────────────
@@ -189,17 +151,6 @@ type PresenceHeartbeatRequest struct {
 	EnforcerID    string `json:"enforcerId"`
 	WorkspaceName string `json:"workspaceName,omitempty"`
 	EnforcerLabel string `json:"enforcerLabel,omitempty"`
-}
-
-// EnforcerPresenceRecord represents a connected enforcer.
-type EnforcerPresenceRecord struct {
-	EnforcerDeviceID string            `json:"enforcerDeviceId"`
-	Status           string            `json:"status"`
-	LastSeenAt       string            `json:"lastSeenAt,omitempty"`
-	Transport        string            `json:"transport,omitempty"`
-	Capabilities     map[string]string `json:"capabilities,omitempty"`
-	WorkspaceName    string            `json:"workspaceName,omitempty"`
-	EnforcerLabel    string            `json:"enforcerLabel,omitempty"`
 }
 
 // ── Echo ────────────────────────────────────────────────────────
@@ -215,20 +166,18 @@ type EchoResponse struct {
 // ── DND (Do Not Disturb) Policies ────────────────────────────────
 
 // DndPolicy represents a DND policy object as returned by the gateway.
-// This type intentionally mirrors the wire shape but keeps most fields generic
-// so the SDK does not have to understand all possible extensions.
 type DndPolicy struct {
-	RequestID         string                 `json:"requestId"`
-	ObjectType        string                 `json:"objectType"`
-	WorkspaceID       string                 `json:"workspaceId"`
-	SessionID         string                 `json:"sessionId,omitempty"`
-	EnforcerID        string                 `json:"enforcerId"`
-	PolicyMode        string                 `json:"policyMode"`
-	TargetArtifactType string                `json:"targetArtifactType,omitempty"`
-	ActionSelector    map[string]interface{} `json:"actionSelector,omitempty"`
-	SelectorHash      string                 `json:"selectorHash,omitempty"`
-	CreatedAt         string                 `json:"createdAt,omitempty"`
-	ExpiresAt         string                 `json:"expiresAt"`
+	RequestID          string                 `json:"requestId"`
+	ObjectType         string                 `json:"objectType"`
+	WorkspaceID        string                 `json:"workspaceId"`
+	SessionID          string                 `json:"sessionId,omitempty"`
+	EnforcerID         string                 `json:"enforcerId"`
+	PolicyMode         string                 `json:"policyMode"`
+	TargetArtifactType string                 `json:"targetArtifactType,omitempty"`
+	ActionSelector     map[string]interface{} `json:"actionSelector,omitempty"`
+	SelectorHash       string                 `json:"selectorHash,omitempty"`
+	CreatedAt          string                 `json:"createdAt,omitempty"`
+	ExpiresAt          string                 `json:"expiresAt"`
 }
 
 // DndEffectiveResponse is the response from GET /v1/policy/dnd/effective.

@@ -10,19 +10,35 @@ import (
 	"time"
 )
 
-// Client is an HTTP client for the Airlock Gateway API.
+// Client is an HTTP client for the Airlock Integrations Gateway API.
+// Supports both Bearer token and enforcer app (ClientId/ClientSecret) auth.
 type Client struct {
-	baseURL    string
-	token      string
-	httpClient *http.Client
+	baseURL      string
+	token        string
+	clientID     string
+	clientSecret string
+	httpClient   *http.Client
 }
 
-// NewClient creates a new Airlock Gateway client.
-// The baseURL should be the gateway's root URL (e.g., "https://gw.example.com").
+// NewClient creates a new Airlock Gateway client with Bearer token auth.
+// The baseURL should be the gateway's root URL (e.g., "https://igw.example.com").
 func NewClient(baseURL, token string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
+		httpClient: &http.Client{
+			Timeout: 90 * time.Second,
+		},
+	}
+}
+
+// NewClientWithCredentials creates a new Airlock Gateway client with
+// enforcer app (ClientId/ClientSecret) authentication.
+func NewClientWithCredentials(baseURL, clientID, clientSecret string) *Client {
+	return &Client{
+		baseURL:      baseURL,
+		clientID:     clientID,
+		clientSecret: clientSecret,
 		httpClient: &http.Client{
 			Timeout: 90 * time.Second,
 		},
@@ -132,25 +148,6 @@ func (c *Client) WithdrawExchange(requestID string) error {
 	return c.doPost(path, nil, nil)
 }
 
-// ── Acknowledgements ────────────────────────────────────────────
-
-// Acknowledge calls POST /v1/acks.
-func (c *Client) Acknowledge(msgID, enforcerID string) error {
-	envelope := HarpEnvelope{
-		MsgID:     fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-		MsgType:   "ack.submit",
-		RequestID: fmt.Sprintf("ack-%d", time.Now().UnixNano()),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		Sender:    &SenderInfo{EnforcerID: enforcerID},
-		Body: AckSubmitBody{
-			MsgID:  msgID,
-			Status: "acknowledged",
-			AckAt:  time.Now().UTC().Format(time.RFC3339),
-		},
-	}
-	return c.doPost("/v1/acks", envelope, nil)
-}
-
 // ── Pairing ─────────────────────────────────────────────────────
 
 // InitiatePairing calls POST /v1/pairing/initiate.
@@ -162,28 +159,10 @@ func (c *Client) InitiatePairing(req PairingInitiateRequest) (*PairingInitiateRe
 	return &resp, nil
 }
 
-// ResolvePairing calls GET /v1/pairing/resolve/{code}.
-func (c *Client) ResolvePairing(code string) (*PairingResolveResponse, error) {
-	var resp PairingResolveResponse
-	if err := c.doGet(fmt.Sprintf("/v1/pairing/resolve/%s", url.PathEscape(code)), &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // GetPairingStatus calls GET /v1/pairing/{nonce}/status.
 func (c *Client) GetPairingStatus(nonce string) (*PairingStatusResponse, error) {
 	var resp PairingStatusResponse
 	if err := c.doGet(fmt.Sprintf("/v1/pairing/%s/status", url.PathEscape(nonce)), &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// CompletePairing calls POST /v1/pairing/complete.
-func (c *Client) CompletePairing(req PairingCompleteRequest) (*PairingCompleteResponse, error) {
-	var resp PairingCompleteResponse
-	if err := c.doPost("/v1/pairing/complete", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -201,18 +180,6 @@ func (c *Client) RevokePairing(routingToken string) (*PairingRevokeResponse, err
 	return &resp, nil
 }
 
-// GetPairingStatusBatch calls POST /v1/pairing/status-batch.
-func (c *Client) GetPairingStatusBatch(routingTokens []string) (*PairingStatusBatchResponse, error) {
-	var resp PairingStatusBatchResponse
-	body := struct {
-		RoutingTokens []string `json:"routingTokens"`
-	}{RoutingTokens: routingTokens}
-	if err := c.doPost("/v1/pairing/status-batch", body, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // ── Presence ────────────────────────────────────────────────────
 
 // SendHeartbeat calls POST /v1/presence/heartbeat.
@@ -220,31 +187,7 @@ func (c *Client) SendHeartbeat(req PresenceHeartbeatRequest) error {
 	return c.doPost("/v1/presence/heartbeat", req, nil)
 }
 
-// ListEnforcers calls GET /v1/presence/enforcers.
-func (c *Client) ListEnforcers() ([]EnforcerPresenceRecord, error) {
-	var resp []EnforcerPresenceRecord
-	if err := c.doGet("/v1/presence/enforcers", &resp); err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-// GetEnforcerPresence calls GET /v1/presence/enforcers/{id}.
-func (c *Client) GetEnforcerPresence(enforcerDeviceID string) (*EnforcerPresenceRecord, error) {
-	var resp EnforcerPresenceRecord
-	if err := c.doGet(fmt.Sprintf("/v1/presence/enforcers/%s", url.PathEscape(enforcerDeviceID)), &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // ── DND (Do Not Disturb) Policies ────────────────────────────────
-
-// SubmitDndPolicy calls POST /v1/policy/dnd with a signed DND policy object.
-// The payload should already be a canonical, signed policy JSON object.
-func (c *Client) SubmitDndPolicy(policy interface{}) error {
-	return c.doPost("/v1/policy/dnd", policy, nil)
-}
 
 // GetEffectiveDndPolicies calls GET /v1/policy/dnd/effective and returns the
 // effective policies for the given enforcer/workspace/session.
@@ -312,6 +255,12 @@ func (c *Client) rawRequest(method, path string, body io.Reader) (*http.Response
 
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	if c.clientID != "" {
+		req.Header.Set("X-Client-Id", c.clientID)
+	}
+	if c.clientSecret != "" {
+		req.Header.Set("X-Client-Secret", c.clientSecret)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
