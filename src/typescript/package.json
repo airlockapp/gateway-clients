@@ -1,5 +1,5 @@
 {
-  "name": "@airlock/gateway-sdk",
+  "name": "@airlockapp/gateway-sdk",
   "version": "0.1.0",
   "description": "Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence.",
   "main": "dist/index.js",
