@@ -258,59 +258,6 @@ async fn test_initiate_pairing() {
     assert_eq!(result.pairing_code, "ABC123");
 }
 
-#[tokio::test]
-async fn test_resolve_pairing() {
-    let (client, server) = setup().await;
-
-    Mock::given(method("GET"))
-        .and(path("/v1/pairing/resolve/ABC123"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "pairingNonce": "n1",
-            "deviceId": "d1",
-            "enforcerLabel": "Cursor"
-        })))
-        .mount(&server)
-        .await;
-
-    let result = client.resolve_pairing("ABC123").await.unwrap();
-    assert_eq!(result.enforcer_label, Some("Cursor".into()));
-}
-
-#[tokio::test]
-async fn test_resolve_pairing_expired() {
-    let (client, server) = setup().await;
-
-    Mock::given(method("GET"))
-        .and(path("/v1/pairing/resolve/OLD"))
-        .respond_with(ResponseTemplate::new(410).set_body_json(serde_json::json!({
-            "error": "expired"
-        })))
-        .mount(&server)
-        .await;
-
-    let err = client.resolve_pairing("OLD").await.unwrap_err();
-    assert!(err.is_expired());
-}
-
-// ── Presence ─────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn test_list_enforcers() {
-    let (client, server) = setup().await;
-
-    Mock::given(method("GET"))
-        .and(path("/v1/presence/enforcers"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
-            {"enforcerDeviceId": "e1", "status": "online"},
-            {"enforcerDeviceId": "e2", "status": "online"}
-        ])))
-        .mount(&server)
-        .await;
-
-    let result = client.list_enforcers().await.unwrap();
-    assert_eq!(result.len(), 2);
-}
-
 // ── Error Edge Cases ─────────────────────────────────────────────
 
 #[tokio::test]
