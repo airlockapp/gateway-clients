@@ -1,6 +1,6 @@
 # Airlock Integrations Gateway Client SDKs
 
-Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
+Multi-language client SDKs for the [Airlock Integrations Gateway](http://localhost:4321/docs/sdk) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
 > Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
