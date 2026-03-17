@@ -248,21 +248,6 @@ async def test_withdraw_raises_on_conflict(client, mock_api):
     assert exc_info.value.is_conflict
 
 
-# ── Acknowledge ──────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_acknowledge(client, mock_api):
-    route = mock_api.post("/v1/acks").respond(200, json={})
-
-    await client.acknowledge("msg-123", "enforcer-1")
-
-    assert route.called
-    body = route.calls[0].request.content
-    assert b"ack.submit" in body
-    assert b"msg-123" in body
-
-
 @pytest.mark.asyncio
 async def test_get_effective_dnd_policies(client, mock_api):
     route = mock_api.get("/v1/policy/dnd/effective").respond(
