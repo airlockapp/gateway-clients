@@ -1,0 +1,24 @@
+{
+  "name": "test-enforcer",
+  "version": "1.0.0",
+  "description": "Airlock Test Enforcer CLI (TypeScript)",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@airlock/gateway-sdk": "file:..",
+    "@inquirer/prompts": "^7.0.0",
+    "chalk": "^5.0.0"
+  }
+}

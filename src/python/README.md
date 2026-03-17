@@ -60,6 +60,25 @@ async with AirlockGatewayClient(
     echo = await client.echo()
 ```
 
+### Dual Auth (set_bearer_token)
+
+After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
+
+```python
+# After user login (Device Auth Grant or Auth Code + PKCE)
+client.set_bearer_token(access_token)
+```
+
+### Authentication by Enforcer App Kind
+
+| EnforcerAppKind | OAuth2 Flow | SDK Methods | Reason |
+|---|---|---|---|
+| **Agent** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | Headless/CLI — no embedded browser, user opens URL + enters code separately |
+| **Desktop** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | Desktop app — delegates to external browser for user code entry |
+| **VsCodeExtension** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | VS Code extension — no embedded browser, uses device code flow |
+| **Web** | Auth Code + PKCE (RFC 7636) | `login_with_auth_code(on_browser_url, port)` or `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Browser-capable — can handle redirects and local callback |
+| **Mobile** | Auth Code + PKCE (RFC 7636) | `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
+
 ## API Reference
 
 | Method | Description |
@@ -74,6 +93,7 @@ async with AirlockGatewayClient(
 | `revoke_pairing(routing_token)` | Revoke a pairing |
 | `send_heartbeat(request)` | Presence heartbeat |
 | `get_effective_dnd_policies(enforcer_id, workspace_id, session_id=None)` | Fetch effective DND policies |
+| `check_consent()` | Check app consent status |
 
 ## Error Handling
 
@@ -107,6 +127,35 @@ except AirlockGatewayError as e:
 pip install -e ".[dev]"
 pytest
 ```
+
+## Test Enforcer CLI
+
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+
+### Prerequisites
+
+- Python 3.9+
+- A running Airlock platform (Gateway + Keycloak)
+
+### Run
+
+```bash
+# From the repo root
+cd src/python
+
+# Create and activate virtual environment (required once)
+python -m venv .venv
+.venv\Scripts\Activate.ps1   # Windows PowerShell
+# source .venv/bin/activate  # macOS / Linux
+
+# Install dependencies (required once)
+pip install -r requirements.txt
+
+# Run the test enforcer
+python test_enforcer.py
+```
+
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-python.json` and restored on subsequent runs.
 
 ## License
 

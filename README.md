@@ -104,6 +104,22 @@ Output packages are placed in `gateway_sdk/dist/{language}/`.
 | Go | pkg.go.dev | `git tag` + `git push` |
 | Rust | crates.io | `cargo publish` |
 
+## Test Enforcer CLIs
+
+Each SDK includes a fully interactive TUI test enforcer application that demonstrates the complete enforcer lifecycle — setup, sign-in, consent, pairing, heartbeat, artifact submission, decision polling, withdrawal, unpairing, and sign-out.
+
+| Language | Path | Run Command |
+|----------|------|-------------|
+| .NET | [`src/dotnet/`](src/dotnet/) | `dotnet run --project Airlock.Gateway.Sdk.TestEnforcer` |
+| TypeScript | [`src/typescript/test-enforcer/`](src/typescript/test-enforcer/) | `npm start` (build SDK first: `npm run build` in parent) |
+| Go | [`src/go/`](src/go/) | `go run ./cmd/test-enforcer` |
+| Python | [`src/python/`](src/python/) | `python test_enforcer.py` |
+| Rust | [`src/rust/`](src/rust/) | `cargo run --bin test_enforcer` |
+
+Configuration is persisted to `~/.airlock/test-enforcer-{language}.json` and restored automatically on subsequent runs.
+
+See each SDK's README for detailed prerequisites and setup instructions.
+
 ## Roadmap
 
 ### SDK Enhancements (v2)

@@ -84,6 +84,13 @@ class AirlockGatewayClient:
         if self._owns_client:
             await self._client.aclose()
 
+    def set_bearer_token(self, token: Optional[str] = None) -> None:
+        """Set (or clear) the user Bearer token for dual-auth scenarios."""
+        if token:
+            self._client.headers["Authorization"] = f"Bearer {token}"
+        else:
+            self._client.headers.pop("Authorization", None)
+
     # ── Discovery ────────────────────────────────────────────────
 
     async def echo(self) -> EchoResponse:
@@ -180,6 +187,18 @@ class AirlockGatewayClient:
             "/v1/presence/heartbeat",
             request.model_dump(by_alias=True, exclude_none=True),
         )
+
+    # ── Consent ──────────────────────────────────────────────────
+
+    async def check_consent(self) -> str:
+        """GET /v1/consent/status — Check if the user has consented to this enforcer app.
+
+        Returns the consent status string (e.g. "approved").
+        Raises AirlockGatewayError with error_code "app_consent_required",
+        "app_consent_pending", or "app_consent_denied" if consent is not granted.
+        """
+        data = await self._get("/v1/consent/status")
+        return data.get("status", "unknown")
 
     # ── DND (Do Not Disturb) Policies ──────────────────────────────
 

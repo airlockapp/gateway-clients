@@ -272,28 +272,7 @@ func TestWithdrawExchange(t *testing.T) {
 	}
 }
 
-// ── Acknowledge ─────────────────────────────────────────────────
 
-func TestAcknowledge(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/acks" {
-			t.Errorf("expected /v1/acks, got %s", r.URL.Path)
-		}
-		var envelope HarpEnvelope
-		json.NewDecoder(r.Body).Decode(&envelope)
-		if envelope.MsgType != "ack.submit" {
-			t.Errorf("expected ack.submit, got %s", envelope.MsgType)
-		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{}`)
-	})
-	defer server.Close()
-
-	err := client.Acknowledge("msg-123", "enforcer-1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
 
 // ── Pairing ─────────────────────────────────────────────────────
 
@@ -315,20 +294,7 @@ func TestInitiatePairing(t *testing.T) {
 	}
 }
 
-func TestResolvePairing(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"pairingNonce":"n1","deviceId":"d1","enforcerLabel":"Cursor"}`)
-	})
-	defer server.Close()
 
-	resp, err := client.ResolvePairing("ABC123")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.EnforcerLabel != "Cursor" {
-		t.Errorf("expected Cursor, got %s", resp.EnforcerLabel)
-	}
-}
 
 func TestGetPairingStatus(t *testing.T) {
 	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
@@ -345,20 +311,7 @@ func TestGetPairingStatus(t *testing.T) {
 	}
 }
 
-func TestCompletePairing(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"status":"completed","pairingNonce":"n1","routingToken":"rt-1"}`)
-	})
-	defer server.Close()
 
-	resp, err := client.CompletePairing(PairingCompleteRequest{PairingNonce: "n1"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.RoutingToken != "rt-1" {
-		t.Errorf("expected rt-1, got %s", resp.RoutingToken)
-	}
-}
 
 func TestRevokePairing(t *testing.T) {
 	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
@@ -375,34 +328,7 @@ func TestRevokePairing(t *testing.T) {
 	}
 }
 
-func TestGetPairingStatusBatch(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"statuses":{"rt-1":"Completed","rt-2":"Revoked"}}`)
-	})
-	defer server.Close()
 
-	resp, err := client.GetPairingStatusBatch([]string{"rt-1", "rt-2"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.Statuses["rt-1"] != "Completed" {
-		t.Errorf("expected Completed, got %s", resp.Statuses["rt-1"])
-	}
-}
-
-func TestResolvePairing_Expired(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(410)
-		fmt.Fprint(w, `{"error":"expired","message":"Pairing code expired"}`)
-	})
-	defer server.Close()
-
-	_, err := client.ResolvePairing("OLD")
-	gwErr := err.(*GatewayError)
-	if !gwErr.IsExpired() {
-		t.Error("expected IsExpired to be true")
-	}
-}
 
 // ── Presence ────────────────────────────────────────────────────
 
@@ -422,35 +348,7 @@ func TestSendHeartbeat(t *testing.T) {
 	}
 }
 
-func TestListEnforcers(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `[{"enforcerDeviceId":"e1","status":"online"},{"enforcerDeviceId":"e2","status":"online"}]`)
-	})
-	defer server.Close()
 
-	resp, err := client.ListEnforcers()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(resp) != 2 {
-		t.Errorf("expected 2 enforcers, got %d", len(resp))
-	}
-}
-
-func TestGetEnforcerPresence(t *testing.T) {
-	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"enforcerDeviceId":"e1","status":"online","enforcerLabel":"Cursor"}`)
-	})
-	defer server.Close()
-
-	resp, err := client.GetEnforcerPresence("e1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.Status != "online" {
-		t.Errorf("expected online, got %s", resp.Status)
-	}
-}
 
 // ── Error Edge Cases ────────────────────────────────────────────
 

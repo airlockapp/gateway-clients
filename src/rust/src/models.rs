@@ -269,3 +269,58 @@ pub struct DndEffectiveResponse {
     pub request_id: String,
     pub body: Vec<DndPolicy>,
 }
+
+// ── Auth (Device Authorization Grant) ───────────────────────────
+
+/// Essential OIDC discovery endpoints
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OidcDiscoveryResult {
+    pub token_endpoint: String,
+    pub device_authorization_endpoint: String,
+    #[serde(default)]
+    pub revocation_endpoint: String,
+    pub authorization_endpoint: String,
+}
+
+/// Start of DeviceAuth flow payload
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceCodeInfo {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_uri: String,
+    pub verification_uri_complete: Option<String>,
+    pub expires_in: i32,
+    pub interval: Option<i32>,
+}
+
+/// Token returned by OIDC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub expires_in: i32,
+    #[serde(default)]
+    pub scope: String,
+}
+
+/// Extracted consent error
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsentErrorInfo {
+    pub error: String,
+    pub message: String,
+    pub consent_url: Option<String>,
+    pub app_name: Option<String>,
+    pub app_id: Option<String>,
+}
+
+// ── Auth Code + PKCE ───────────────────────────────────────────────
+
+/// Result of building an authorization URL for the Auth Code + PKCE flow.
+#[derive(Debug, Clone)]
+pub struct AuthCodeRequest {
+    pub authorization_url: String,
+    pub state: String,
+    pub code_verifier: String,
+    pub redirect_uri: String,
+}

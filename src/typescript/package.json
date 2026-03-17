@@ -5,9 +5,18 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "type": "module",
   "license": "MIT",
-  "keywords": ["airlock", "gateway", "sdk", "harp", "approval"],
-  "files": ["dist"],
+  "keywords": [
+    "airlock",
+    "gateway",
+    "sdk",
+    "harp",
+    "approval"
+  ],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -15,6 +24,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "typescript": "^5.3.0",
     "vitest": "^2.0.0"
   },

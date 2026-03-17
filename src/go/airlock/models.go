@@ -186,3 +186,47 @@ type DndEffectiveResponse struct {
 	RequestID string      `json:"requestId"`
 	Body      []DndPolicy `json:"body"`
 }
+
+// ── Auth (Device Authorization Grant) ───────────────────────────
+
+// OidcDiscoveryResult is the subset of OIDC config we need.
+type OidcDiscoveryResult struct {
+	TokenEndpoint               string `json:"token_endpoint"`
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint"`
+	RevocationEndpoint          string `json:"revocation_endpoint"`
+	AuthorizationEndpoint       string `json:"authorization_endpoint"`
+}
+
+// DeviceCodeInfo is the response from the device_authorization endpoint.
+type DeviceCodeInfo struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete,omitempty"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval,omitempty"`
+}
+
+// TokenResponse is the standard OAuth2 token response.
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+}
+
+// TokenErrorResponse is the standard OAuth2 error response.
+type TokenErrorResponse struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description,omitempty"`
+}
+
+// ConsentErrorInfo contains details about a required/pending consent.
+type ConsentErrorInfo struct {
+	Error      string
+	Message    string
+	ConsentURL string
+	AppName    string
+	AppID      string
+}

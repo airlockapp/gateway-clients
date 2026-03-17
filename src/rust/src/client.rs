@@ -4,7 +4,6 @@ use crate::errors::GatewayError;
 use crate::models::*;
 use reqwest::Client as HttpClient;
 use serde_json::json;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Async client for the Airlock Integrations Gateway.
@@ -56,6 +55,11 @@ impl AirlockGatewayClient {
         }
     }
 
+    /// Set (or clear) the user Bearer token for dual-auth scenarios.
+    pub fn set_bearer_token(&mut self, token: Option<impl Into<String>>) {
+        self.token = token.map(|t| t.into());
+    }
+
     /// Create a new client with a custom reqwest::Client (useful for testing).
     pub fn with_http_client(
         base_url: impl Into<String>,
@@ -67,6 +71,23 @@ impl AirlockGatewayClient {
             token: token.map(|t| t.into()),
             client_id: None,
             client_secret: None,
+            http,
+        }
+    }
+
+    /// Create a new client with enforcer app credentials AND a custom reqwest::Client.
+    /// Useful for self-signed certificate scenarios in development.
+    pub fn with_credentials_and_http_client(
+        base_url: impl Into<String>,
+        client_id: impl Into<String>,
+        client_secret: impl Into<String>,
+        http: HttpClient,
+    ) -> Self {
+        Self {
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            token: None,
+            client_id: Some(client_id.into()),
+            client_secret: Some(client_secret.into()),
             http,
         }
     }
@@ -224,6 +245,20 @@ impl AirlockGatewayClient {
             .join("&");
 
         self.get(&format!("/v1/policy/dnd/effective?{}", query)).await
+    }
+
+    // ── Consent ─────────────────────────────────────────────────
+
+    /// GET /v1/consent/status — Check if the user has consented to this enforcer app.
+    /// Returns the consent status string (e.g. "approved").
+    /// Returns GatewayError with error_code "app_consent_required", "app_consent_pending",
+    /// or "app_consent_denied" if consent is not granted.
+    pub async fn check_consent(&self) -> Result<String, GatewayError> {
+        let resp: serde_json::Value = self.get("/v1/consent/status").await?;
+        Ok(resp.get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string())
     }
 
     // ── HTTP Helpers ────────────────────────────────────────────

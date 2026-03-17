@@ -76,6 +76,18 @@ namespace Airlock.Gateway.Sdk
             _http.DefaultRequestHeaders.Add("X-Client-Secret", clientSecret);
         }
 
+        /// <summary>
+        /// Sets (or clears) the user Bearer token on this client.
+        /// This allows dual-auth scenarios where both client credentials and user bearer token
+        /// are sent on every request (e.g., enforcer app acting on behalf of a logged-in user).
+        /// </summary>
+        public void SetBearerToken(string? bearerToken)
+        {
+            _http.DefaultRequestHeaders.Authorization = string.IsNullOrEmpty(bearerToken)
+                ? null
+                : new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+
         // ── Discovery ───────────────────────────────────────────────
 
         /// <inheritdoc />
@@ -297,6 +309,19 @@ namespace Airlock.Gateway.Sdk
             var message = errorMessage ?? $"Gateway returned {(int)response.StatusCode}";
             throw new AirlockGatewayException(
                 message, response.StatusCode, errorCode, body, requestId);
+        }
+
+        /// <inheritdoc />
+        public async Task<string> CheckConsentAsync(CancellationToken ct = default)
+        {
+            var response = await _http.GetAsync("/v1/consent/status", ct).ConfigureAwait(false);
+            var body = await ReadResponseBodyAsync(response).ConfigureAwait(false);
+            await EnsureSuccessAsync(response, body);
+
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("status", out var s)
+                ? s.GetString() ?? "unknown"
+                : "unknown";
         }
     }
 }

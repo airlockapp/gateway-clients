@@ -65,6 +65,25 @@ let client = AirlockGatewayClient::with_credentials(
 );
 ```
 
+### Dual Auth (set_bearer_token)
+
+After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
+
+```rust
+// After user login (Device Auth Grant or Auth Code + PKCE)
+client.set_bearer_token(Some(access_token));
+```
+
+### Authentication by Enforcer App Kind
+
+| EnforcerAppKind | OAuth2 Flow | SDK Methods | Reason |
+|---|---|---|---|
+| **Agent** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | Headless/CLI — no embedded browser, user opens URL + enters code separately |
+| **Desktop** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | Desktop app — delegates to external browser for user code entry |
+| **VsCodeExtension** | Device Authorization Grant (RFC 8628) | `login(on_user_code)` | VS Code extension — no embedded browser, uses device code flow |
+| **Web** | Auth Code + PKCE (RFC 7636) | `login_with_auth_code(on_browser_url, port)` or `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Browser-capable — can handle redirects and local callback |
+| **Mobile** | Auth Code + PKCE (RFC 7636) | `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
+
 ## API Reference
 
 | Method | Description |
@@ -79,6 +98,7 @@ let client = AirlockGatewayClient::with_credentials(
 | `revoke_pairing(token)` | Revoke a pairing |
 | `send_heartbeat(req)` | Presence heartbeat |
 | `get_effective_dnd_policies(enforcer_id, workspace_id, session_id)` | Fetch effective DND policies |
+| `check_consent()` | Check app consent status |
 
 ## Error Handling
 
@@ -104,6 +124,27 @@ match client.submit_artifact(req).await {
 ```bash
 cargo test
 ```
+
+## Test Enforcer CLI
+
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+
+### Prerequisites
+
+- Rust 2021 edition (1.56+)
+- A running Airlock platform (Gateway + Keycloak)
+
+### Run
+
+```bash
+# From the repo root
+cd src/rust
+
+# Run the test enforcer
+cargo run --bin test_enforcer
+```
+
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-rust.json` and restored on subsequent runs.
 
 ## License
 

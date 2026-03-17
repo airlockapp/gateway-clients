@@ -43,3 +43,8 @@ class AirlockGatewayError(Exception):
     def is_conflict(self) -> bool:
         """True if the error is an idempotency conflict (409)."""
         return self.status_code == 409
+
+
+class AirlockAuthException(Exception):
+    """Raised for authentication errors in the AirlockAuthClient."""
+    pass

@@ -31,6 +31,25 @@ const client = new AirlockGatewayClient({
 });
 ```
 
+### Dual Auth (setBearerToken)
+
+After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
+
+```typescript
+// After user login (Device Auth Grant or Auth Code + PKCE)
+client.setBearerToken(accessToken);
+```
+
+### Authentication by Enforcer App Kind
+
+| EnforcerAppKind | OAuth2 Flow | SDK Methods | Reason |
+|---|---|---|---|
+| **Agent** | Device Authorization Grant (RFC 8628) | `login(onUserCode)` | Headless/CLI — no embedded browser, user opens URL + enters code separately |
+| **Desktop** | Device Authorization Grant (RFC 8628) | `login(onUserCode)` | Desktop app — delegates to external browser for user code entry |
+| **VsCodeExtension** | Device Authorization Grant (RFC 8628) | `login(onUserCode)` | VS Code extension — no embedded browser, uses device code flow |
+| **Web** | Auth Code + PKCE (RFC 7636) | `loginWithAuthCode(onBrowserUrl, port?)` or `getAuthorizationUrl(redirectUri)` + `exchangeCode(code, redirectUri, verifier)` | Browser-capable — can handle redirects and local callback |
+| **Mobile** | Auth Code + PKCE (RFC 7636) | `getAuthorizationUrl(redirectUri)` + `exchangeCode(code, redirectUri, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
+
 ### Submit and Poll
 
 ```typescript
@@ -68,6 +87,7 @@ if (decision?.body?.decision === "approve") {
 | `revokePairing(routingToken)` | Revoke a pairing |
 | `sendHeartbeat(request)` | Presence heartbeat |
 | `getEffectiveDndPolicies(enforcerId, workspaceId, sessionId?)` | Fetch effective DND policies |
+| `checkConsent()` | Check app consent status |
 
 ## Error Handling
 
@@ -111,6 +131,31 @@ npm install
 npm run build
 npm test
 ```
+
+## Test Enforcer CLI
+
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+
+### Prerequisites
+
+- Node.js 18+
+- A running Airlock platform (Gateway + Keycloak)
+
+### Run
+
+```bash
+# From the repo root — build the SDK first (required once)
+cd src/typescript
+npm install
+npm run build
+
+# Run the test enforcer
+cd test-enforcer
+npm install
+npm start
+```
+
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-typescript.json` and restored on subsequent runs.
 
 ## License
 

@@ -215,3 +215,34 @@ class DndEffectiveResponse(BaseModel):
     body: List[DndPolicyWire] = []
 
     model_config = {"populate_by_name": True}
+
+
+# ── Auth (Device Authorization Grant) ────────────────────────────
+
+
+class DeviceCodeInfo:
+    def __init__(self, data: Dict[str, Any]):
+        self.device_code: str = data.get("device_code", "")
+        self.user_code: str = data.get("user_code", "")
+        self.verification_uri: str = data.get("verification_uri", "")
+        self.verification_uri_complete: Optional[str] = data.get("verification_uri_complete")
+        self.expires_in: int = data.get("expires_in", 600)
+        self.interval: int = data.get("interval", 5)
+
+
+class TokenResponse:
+    def __init__(self, data: Dict[str, Any]):
+        self.access_token: str = data.get("access_token", "")
+        self.refresh_token: str = data.get("refresh_token", "")
+        self.token_type: str = data.get("token_type", "")
+        self.expires_in: int = data.get("expires_in", 0)
+        self.scope: str = data.get("scope", "")
+
+
+class ConsentErrorInfo:
+    def __init__(self, data: Dict[str, Any]):
+        self.error: str = data.get("error", "")
+        self.message: Optional[str] = data.get("message")
+        self.consent_url: Optional[str] = data.get("consentUrl")
+        self.app_name: Optional[str] = data.get("appName")
+        self.app_id: Optional[str] = data.get("appId")

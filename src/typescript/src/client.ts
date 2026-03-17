@@ -36,7 +36,7 @@ export interface AirlockGatewayClientOptions {
  */
 export class AirlockGatewayClient {
     private readonly baseUrl: string;
-    private readonly token?: string;
+    private token?: string;
     private readonly clientId?: string;
     private readonly clientSecret?: string;
     private readonly fetchFn: typeof globalThis.fetch;
@@ -47,6 +47,14 @@ export class AirlockGatewayClient {
         this.clientId = options.clientId;
         this.clientSecret = options.clientSecret;
         this.fetchFn = options.fetch ?? globalThis.fetch;
+    }
+
+    /**
+     * Sets (or clears) the user Bearer token on this client.
+     * Allows dual-auth where both client credentials and user token are sent.
+     */
+    setBearerToken(token?: string): void {
+        this.token = token;
     }
 
     // ── Discovery ───────────────────────────────────────────────
@@ -149,6 +157,19 @@ export class AirlockGatewayClient {
         }
         const path = `/v1/policy/dnd/effective?${params.toString()}`;
         return this.get<DndEffectiveResponse>(path);
+    }
+
+    // ── Consent ─────────────────────────────────────────────────
+
+    /**
+     * GET /v1/consent/status — Check if the user has consented to this enforcer app.
+     * Returns the consent status string (e.g. "approved").
+     * Throws AirlockGatewayError with errorCode "app_consent_required",
+     * "app_consent_pending", or "app_consent_denied" if consent is not granted.
+     */
+    async checkConsent(): Promise<string> {
+        const data = await this.get<{ status?: string }>("/v1/consent/status");
+        return data.status ?? "unknown";
     }
 
     // ── HTTP Helpers ────────────────────────────────────────────

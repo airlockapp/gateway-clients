@@ -83,20 +83,7 @@ func TestPairingInitiateRequest_Serializes(t *testing.T) {
 	}
 }
 
-func TestPairingStatusBatch_Deserializes(t *testing.T) {
-	raw := `{"statuses":{"rt-1":"Completed","rt-2":"Revoked"}}`
-	var resp PairingStatusBatchResponse
-	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		t.Fatalf("unmarshal error: %v", err)
-	}
 
-	if len(resp.Statuses) != 2 {
-		t.Errorf("expected 2 statuses, got %d", len(resp.Statuses))
-	}
-	if resp.Statuses["rt-1"] != "Completed" {
-		t.Errorf("expected Completed, got %s", resp.Statuses["rt-1"])
-	}
-}
 
 func TestEchoResponse_Deserializes(t *testing.T) {
 	raw := `{"utc":"2025-01-01T00:00:00Z","local":"x","timezone":"Europe/Istanbul","offsetMinutes":180}`
@@ -113,17 +100,7 @@ func TestEchoResponse_Deserializes(t *testing.T) {
 	}
 }
 
-func TestEnforcerPresenceRecord_Capabilities(t *testing.T) {
-	raw := `{"enforcerDeviceId":"e1","status":"online","capabilities":{"hooks":"true"}}`
-	var rec EnforcerPresenceRecord
-	if err := json.Unmarshal([]byte(raw), &rec); err != nil {
-		t.Fatalf("unmarshal error: %v", err)
-	}
 
-	if rec.Capabilities["hooks"] != "true" {
-		t.Errorf("expected hooks=true, got %s", rec.Capabilities["hooks"])
-	}
-}
 
 func TestGatewayError_Properties(t *testing.T) {
 	tests := []struct {

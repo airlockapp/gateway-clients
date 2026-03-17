@@ -1,6 +1,7 @@
 export { AirlockGatewayClient } from "./client.js";
 export type { AirlockGatewayClientOptions } from "./client.js";
 export { AirlockGatewayError } from "./errors.js";
+export * from "./auth-client.js";
 export type {
     ArtifactSubmitBody,
     ArtifactSubmitRequest,

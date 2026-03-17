@@ -51,6 +51,12 @@ func (c *Client) WithHTTPClient(hc *http.Client) *Client {
 	return c
 }
 
+// SetBearerToken sets (or clears) the user Bearer token for dual-auth scenarios.
+func (c *Client) SetBearerToken(token string) *Client {
+	c.token = token
+	return c
+}
+
 // ── Discovery ───────────────────────────────────────────────────
 
 // Echo calls GET /echo for gateway discovery and health.
@@ -205,6 +211,25 @@ func (c *Client) GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID stri
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// ── Consent ─────────────────────────────────────────────────────
+
+// CheckConsent calls GET /v1/consent/status to check if the user has consented
+// to this enforcer app. Returns the consent status string (e.g. "approved").
+// Throws GatewayError with error_code "app_consent_required", "app_consent_pending",
+// or "app_consent_denied" if consent is not granted.
+func (c *Client) CheckConsent() (string, error) {
+	var resp struct {
+		Status string `json:"status"`
+	}
+	if err := c.doGet("/v1/consent/status", &resp); err != nil {
+		return "", err
+	}
+	if resp.Status == "" {
+		return "unknown", nil
+	}
+	return resp.Status, nil
 }
 
 // ── HTTP Helpers ────────────────────────────────────────────────

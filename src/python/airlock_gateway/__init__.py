@@ -1,7 +1,8 @@
 """Airlock Gateway Client SDK for Python."""
 
-from airlock_gateway.client import AirlockGatewayClient
-from airlock_gateway.exceptions import AirlockGatewayError
+from .client import AirlockGatewayClient
+from .auth_client import AirlockAuthClient, AirlockAuthOptions
+from .exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
     CiphertextRef,
@@ -18,6 +19,9 @@ from airlock_gateway.models import (
     PairingStatusResponse,
     PresenceHeartbeatRequest,
     SenderInfo,
+    DeviceCodeInfo,
+    TokenResponse,
+    ConsentErrorInfo,
 )
 
 __all__ = [
@@ -38,6 +42,11 @@ __all__ = [
     "PairingStatusResponse",
     "PresenceHeartbeatRequest",
     "SenderInfo",
+    "AirlockAuthClient",
+    "AirlockAuthOptions",
+    "DeviceCodeInfo",
+    "TokenResponse",
+    "ConsentErrorInfo",
 ]
 
 __version__ = "0.1.0"

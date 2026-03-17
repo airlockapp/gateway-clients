@@ -62,6 +62,25 @@ client := airlock.NewClientWithCredentials(
 )
 ```
 
+### Dual Auth (SetBearerToken)
+
+After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
+
+```go
+// After user login (Device Auth Grant or Auth Code + PKCE)
+client.SetBearerToken(accessToken)
+```
+
+### Authentication by Enforcer App Kind
+
+| EnforcerAppKind | OAuth2 Flow | SDK Methods | Reason |
+|---|---|---|---|
+| **Agent** | Device Authorization Grant (RFC 8628) | `Login(ctx, onUserCode)` | Headless/CLI — no embedded browser, user opens URL + enters code separately |
+| **Desktop** | Device Authorization Grant (RFC 8628) | `Login(ctx, onUserCode)` | Desktop app — delegates to external browser for user code entry |
+| **VsCodeExtension** | Device Authorization Grant (RFC 8628) | `Login(ctx, onUserCode)` | VS Code extension — no embedded browser, uses device code flow |
+| **Web** | Auth Code + PKCE (RFC 7636) | `LoginWithAuthCode(ctx, onBrowserURL, port)` or `GetAuthorizationURL(ctx, redirectURI)` + `ExchangeCode(ctx, code, redirectURI, verifier)` | Browser-capable — can handle redirects and local callback |
+| **Mobile** | Auth Code + PKCE (RFC 7636) | `GetAuthorizationURL(ctx, redirectURI)` + `ExchangeCode(ctx, code, redirectURI, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
+
 ## API Reference
 
 | Method | Description |
@@ -76,6 +95,7 @@ client := airlock.NewClientWithCredentials(
 | `RevokePairing(routingToken)` | Revoke a pairing |
 | `SendHeartbeat(req)` | Presence heartbeat |
 | `GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID)` | Fetch effective DND policies |
+| `CheckConsent()` | Check app consent status |
 
 ## Error Handling
 
@@ -107,6 +127,27 @@ if gwErr, ok := err.(*airlock.GatewayError); ok {
 ```bash
 go test ./airlock/...
 ```
+
+## Test Enforcer CLI
+
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+
+### Prerequisites
+
+- Go 1.21+
+- A running Airlock platform (Gateway + Keycloak)
+
+### Run
+
+```bash
+# From the repo root
+cd src/go
+
+# Run the test enforcer
+go run ./cmd/test-enforcer
+```
+
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-go.json` and restored on subsequent runs.
 
 ## License
 

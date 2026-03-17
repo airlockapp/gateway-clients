@@ -28,6 +28,25 @@ var client = new AirlockGatewayClient(
     clientSecret: "your-client-secret");
 ```
 
+### Dual Auth (SetBearerToken)
+
+After creating a client with credentials, you can set a user's Bearer token to enable user-scoped operations (e.g. consent-aware requests):
+
+```csharp
+// After user login (Device Auth Grant or Auth Code + PKCE)
+client.SetBearerToken(accessToken);
+```
+
+### Authentication by Enforcer App Kind
+
+| EnforcerAppKind | OAuth2 Flow | SDK Methods | Reason |
+|---|---|---|---|
+| **Agent** | Device Authorization Grant (RFC 8628) | `LoginAsync(onUserCode)` | Headless/CLI — no embedded browser, user opens URL + enters code separately |
+| **Desktop** | Device Authorization Grant (RFC 8628) | `LoginAsync(onUserCode)` | Desktop app — delegates to external browser for user code entry |
+| **VsCodeExtension** | Device Authorization Grant (RFC 8628) | `LoginAsync(onUserCode)` | VS Code extension — no embedded browser, uses device code flow |
+| **Web** | Auth Code + PKCE (RFC 7636) | `LoginWithAuthCodeAsync(onBrowserUrl)` or `GetAuthorizationUrlAsync()` + `ExchangeCodeAsync()` | Browser-capable — can handle redirects and local callback |
+| **Mobile** | Auth Code + PKCE (RFC 7636) | `GetAuthorizationUrlAsync()` + `ExchangeCodeAsync()` | Uses system browser + deep-link callback (manages redirect externally) |
+
 ### Submit and Poll
 
 ```csharp
@@ -106,6 +125,27 @@ catch (AirlockGatewayException ex) when (ex.IsConflict)
 dotnet build
 dotnet test
 ```
+
+## Test Enforcer CLI
+
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+
+### Prerequisites
+
+- .NET 10 SDK
+- A running Airlock platform (Gateway + Keycloak)
+
+### Run
+
+```bash
+# From the repo root
+cd src/dotnet
+
+# Run the test enforcer
+dotnet run --project Airlock.Gateway.Sdk.TestEnforcer
+```
+
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-dotnet.json` and restored on subsequent runs.
 
 ## License
 
