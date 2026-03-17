@@ -137,6 +137,6 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           sed -i '3s/version = ".*"/version = "'"$VERSION"'"/' Cargo.toml
-          cargo publish --token ${{ secrets.CRATES_TOKEN }}
+          cargo publish --allow-dirty
         env:
-          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
