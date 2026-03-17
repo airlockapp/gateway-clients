@@ -5,7 +5,7 @@ A Go client SDK for the Airlock Integrations Gateway API. Uses the standard libr
 ## Installation
 
 ```bash
-go get github.com/AirlockHQ/airlock-gateway-sdk-go/airlock
+go get github.com/airlockapp/gateway-clients/src/go/airlock
 ```
 
 ## Quick Start
@@ -19,7 +19,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/AirlockHQ/airlock-gateway-sdk-go/airlock"
+    "github.com/airlockapp/gateway-clients/src/go/airlock"
 )
 
 func main() {

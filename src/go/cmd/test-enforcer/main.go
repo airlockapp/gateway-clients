@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AirlockHQ/airlock-gateway-sdk-go/airlock"
+	"github.com/airlockapp/gateway-clients/src/go/airlock"
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
 )

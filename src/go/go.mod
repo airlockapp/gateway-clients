@@ -1,4 +1,4 @@
-module github.com/AirlockHQ/airlock-gateway-sdk-go
+module github.com/airlockapp/gateway-clients/src/go
 
 go 1.21
 
