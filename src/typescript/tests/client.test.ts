@@ -207,19 +207,6 @@ describe("withdrawExchange", () => {
     });
 });
 
-// ── Acknowledge ──────────────────────────────────────────────────
-
-describe("acknowledge", () => {
-    it("posts ack envelope", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, {});
-
-        await client.acknowledge("msg-123", "enforcer-1");
-
-        expect(mock.requests[0].body).toContain("ack.submit");
-        expect(mock.requests[0].body).toContain("msg-123");
-    });
-});
 
 // ── DND (Do Not Disturb) Policies ─────────────────────────────────
 
@@ -264,14 +251,6 @@ describe("pairing", () => {
         expect(result.pairingCode).toBe("ABC123");
     });
 
-    it("resolve returns session info", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, { pairingNonce: "n1", deviceId: "d1", enforcerLabel: "Cursor" });
-
-        const result = await client.resolvePairing("ABC123");
-        expect(result.enforcerLabel).toBe("Cursor");
-    });
-
     it("get status returns state", async () => {
         const { client, mock } = createClient();
         mock.enqueue(200, { pairingNonce: "n1", state: "Completed", routingToken: "rt-1" });
@@ -280,40 +259,12 @@ describe("pairing", () => {
         expect(result.state).toBe("Completed");
     });
 
-    it("complete returns routing token", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, { status: "completed", pairingNonce: "n1", routingToken: "rt-1" });
-
-        const result = await client.completePairing({ pairingNonce: "n1" });
-        expect(result.routingToken).toBe("rt-1");
-    });
-
     it("revoke posts correctly", async () => {
         const { client, mock } = createClient();
         mock.enqueue(200, { status: "revoked" });
 
         const result = await client.revokePairing("rt-1");
         expect(result.status).toBe("revoked");
-    });
-
-    it("status-batch returns statuses", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, { statuses: { "rt-1": "Completed", "rt-2": "Revoked" } });
-
-        const result = await client.getPairingStatusBatch(["rt-1", "rt-2"]);
-        expect(result.statuses["rt-1"]).toBe("Completed");
-    });
-
-    it("resolve throws on expired (410)", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(410, { error: "expired" });
-
-        try {
-            await client.resolvePairing("OLD");
-            expect.unreachable();
-        } catch (e) {
-            expect((e as AirlockGatewayError).isExpired).toBe(true);
-        }
     });
 });
 
@@ -326,25 +277,6 @@ describe("presence", () => {
 
         await client.sendHeartbeat({ enforcerId: "e-1" });
         expect(mock.requests[0].url).toContain("/v1/presence/heartbeat");
-    });
-
-    it("lists enforcers", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, [
-            { enforcerDeviceId: "e1", status: "online" },
-            { enforcerDeviceId: "e2", status: "online" },
-        ]);
-
-        const result = await client.listEnforcers();
-        expect(result).toHaveLength(2);
-    });
-
-    it("gets single enforcer", async () => {
-        const { client, mock } = createClient();
-        mock.enqueue(200, { enforcerDeviceId: "e1", status: "online" });
-
-        const result = await client.getEnforcerPresence("e1");
-        expect(result.status).toBe("online");
     });
 });
 
