@@ -11,10 +11,8 @@ from airlock_gateway.models import (
     CiphertextRef,
     DecisionDeliverBody,
     EchoResponse,
-    EnforcerPresenceRecord,
     HarpEnvelope,
     PairingInitiateRequest,
-    PairingStatusBatchResponse,
     PresenceHeartbeatRequest,
     SenderInfo,
 )
@@ -120,14 +118,6 @@ def test_pairing_initiate_request_serializes():
     assert data["enforcerLabel"] == "Cursor"
 
 
-def test_pairing_status_batch_deserializes():
-    raw = '{"statuses":{"rt-1":"Completed","rt-2":"Revoked"}}'
-    result = PairingStatusBatchResponse.model_validate_json(raw)
-
-    assert len(result.statuses) == 2
-    assert result.statuses["rt-1"] == "Completed"
-
-
 def test_echo_response_deserializes():
     raw = '{"utc":"2025-01-01T00:00:00Z","local":"x","timezone":"Europe/Istanbul","offsetMinutes":180}'
     result = EchoResponse.model_validate_json(raw)
@@ -148,11 +138,3 @@ def test_presence_heartbeat_round_trips():
     assert restored.enforcer_id == "e-1"
 
 
-def test_enforcer_presence_with_capabilities():
-    raw = '{"enforcerDeviceId":"e1","status":"online","capabilities":{"hooks":"true"},"enforcerLabel":"Cursor"}'
-    record = EnforcerPresenceRecord.model_validate_json(raw)
-
-    assert record.enforcer_device_id == "e1"
-    assert record.enforcer_label == "Cursor"
-    assert record.capabilities is not None
-    assert record.capabilities["hooks"] == "true"

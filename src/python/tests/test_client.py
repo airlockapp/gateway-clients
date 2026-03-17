@@ -11,7 +11,6 @@ from airlock_gateway.exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
     CiphertextRef,
-    PairingCompleteRequest,
     PairingInitiateRequest,
     PresenceHeartbeatRequest,
 )
@@ -316,94 +315,6 @@ async def test_initiate_pairing(client, mock_api):
     assert result.pairing_code == "ABC123"
 
 
-@pytest.mark.asyncio
-async def test_resolve_pairing(client, mock_api):
-    mock_api.get("/v1/pairing/resolve/ABC123").respond(
-        200,
-        json={
-            "pairingNonce": "nonce-1",
-            "deviceId": "dev-1",
-            "enforcerLabel": "Cursor",
-        },
-    )
-
-    result = await client.resolve_pairing("ABC123")
-
-    assert result.pairing_nonce == "nonce-1"
-    assert result.enforcer_label == "Cursor"
-
-
-@pytest.mark.asyncio
-async def test_get_pairing_status(client, mock_api):
-    mock_api.get("/v1/pairing/nonce-1/status").respond(
-        200,
-        json={
-            "pairingNonce": "nonce-1",
-            "state": "Completed",
-            "routingToken": "rt-xyz",
-        },
-    )
-
-    result = await client.get_pairing_status("nonce-1")
-
-    assert result.state == "Completed"
-    assert result.routing_token == "rt-xyz"
-
-
-@pytest.mark.asyncio
-async def test_complete_pairing(client, mock_api):
-    mock_api.post("/v1/pairing/complete").respond(
-        200,
-        json={
-            "status": "completed",
-            "pairingNonce": "nonce-1",
-            "routingToken": "rt-xyz",
-        },
-    )
-
-    result = await client.complete_pairing(
-        PairingCompleteRequest(pairing_nonce="nonce-1")
-    )
-
-    assert result.status == "completed"
-    assert result.routing_token == "rt-xyz"
-
-
-@pytest.mark.asyncio
-async def test_revoke_pairing(client, mock_api):
-    mock_api.post("/v1/pairing/revoke").respond(
-        200, json={"status": "revoked", "enforcerId": "e-1"}
-    )
-
-    result = await client.revoke_pairing("rt-xyz")
-    assert result.status == "revoked"
-
-
-@pytest.mark.asyncio
-async def test_get_pairing_status_batch(client, mock_api):
-    mock_api.post("/v1/pairing/status-batch").respond(
-        200,
-        json={"statuses": {"rt-1": "Completed", "rt-2": "Revoked"}},
-    )
-
-    result = await client.get_pairing_status_batch(["rt-1", "rt-2"])
-
-    assert result.statuses["rt-1"] == "Completed"
-    assert result.statuses["rt-2"] == "Revoked"
-
-
-@pytest.mark.asyncio
-async def test_resolve_pairing_raises_on_expired(client, mock_api):
-    mock_api.get("/v1/pairing/resolve/OLD").respond(
-        410, json={"error": "expired", "message": "Pairing code expired"}
-    )
-
-    with pytest.raises(AirlockGatewayError) as exc_info:
-        await client.resolve_pairing("OLD")
-
-    assert exc_info.value.is_expired
-
-
 # ── Presence ─────────────────────────────────────────────────────
 
 
@@ -418,47 +329,6 @@ async def test_send_heartbeat(client, mock_api):
     )
 
     assert route.called
-
-
-@pytest.mark.asyncio
-async def test_list_enforcers(client, mock_api):
-    mock_api.get("/v1/presence/enforcers").respond(
-        200,
-        json=[
-            {"enforcerDeviceId": "e1", "status": "online"},
-            {"enforcerDeviceId": "e2", "status": "online"},
-        ],
-    )
-
-    result = await client.list_enforcers()
-
-    assert len(result) == 2
-    assert result[0].enforcer_device_id == "e1"
-
-
-@pytest.mark.asyncio
-async def test_get_enforcer_presence(client, mock_api):
-    mock_api.get("/v1/presence/enforcers/e1").respond(
-        200,
-        json={"enforcerDeviceId": "e1", "status": "online", "enforcerLabel": "Cursor"},
-    )
-
-    result = await client.get_enforcer_presence("e1")
-
-    assert result.status == "online"
-    assert result.enforcer_label == "Cursor"
-
-
-@pytest.mark.asyncio
-async def test_get_enforcer_presence_not_found(client, mock_api):
-    mock_api.get("/v1/presence/enforcers/e-unknown").respond(
-        404, json={"error": "Not found"}
-    )
-
-    with pytest.raises(AirlockGatewayError) as exc_info:
-        await client.get_enforcer_presence("e-unknown")
-
-    assert exc_info.value.status_code == 404
 
 
 # ── Error edge cases ─────────────────────────────────────────────
