@@ -23,15 +23,15 @@ import (
 
 // ── Persistent Configuration ────────────────────────────────────────────
 type Config struct {
-	GatewayURL    string `json:"gatewayUrl"`
-	ClientID      string `json:"clientId"`
-	ClientSecret  string `json:"clientSecret"`
-	EnforcerID    string `json:"enforcerId"`
-	WorkspaceName string `json:"workspaceName"`
-	DeviceID      string `json:"deviceId"`
-	RoutingToken  string `json:"routingToken"`
-	AccessToken   string `json:"accessToken"`
-	RefreshToken  string `json:"refreshToken"`
+	GatewayURL     string    `json:"gatewayUrl"`
+	ClientID       string    `json:"clientId"`
+	ClientSecret   string    `json:"clientSecret"`
+	EnforcerID     string    `json:"enforcerId"`
+	WorkspaceName  string    `json:"workspaceName"`
+	DeviceID       string    `json:"deviceId"`
+	RoutingToken   string    `json:"routingToken"`
+	AccessToken    string    `json:"accessToken"`
+	RefreshToken   string    `json:"refreshToken"`
 	TokenExpiresAt time.Time `json:"tokenExpiresAt"`
 }
 
@@ -44,22 +44,22 @@ type DiscoveryResponse struct {
 }
 
 var (
-	cfg          Config
-	configPath   string
-	authClient   *airlock.AirlockAuthClient
-	gwClient     *airlock.Client
-	keycloakURL  = "http://localhost:18080/realms/airlock"
-	lastReqID    string
-	heartbeatMu  sync.Mutex
-	heartbeatCtx context.Context
+	cfg             Config
+	configPath      string
+	authClient      *airlock.AirlockAuthClient
+	gwClient        *airlock.Client
+	keycloakURL     string
+	lastReqID       string
+	heartbeatMu     sync.Mutex
+	heartbeatCtx    context.Context
 	heartbeatCancel context.CancelFunc
 
-	cyan    = color.New(color.FgCyan, color.Bold)
-	green   = color.New(color.FgGreen)
-	red     = color.New(color.FgRed)
-	yellow  = color.New(color.FgYellow)
-	dim     = color.New(color.Faint)
-	bold    = color.New(color.Bold)
+	cyan   = color.New(color.FgCyan, color.Bold)
+	green  = color.New(color.FgGreen)
+	red    = color.New(color.FgRed)
+	yellow = color.New(color.FgYellow)
+	dim    = color.New(color.Faint)
+	bold   = color.New(color.Bold)
 )
 
 func main() {
@@ -68,7 +68,7 @@ func main() {
 
 	// Banner
 	cyan.Println("╔═══════════════════════════════════════╗")
-	cyan.Println("║       Airlock Test Enforcer (Go)       ║")
+	cyan.Println("║       Airlock Test Enforcer (Go)      ║")
 	cyan.Println("╚═══════════════════════════════════════╝")
 	fmt.Println()
 
@@ -125,6 +125,7 @@ func handleChoice(choice string) error {
 		return doSignOut()
 	case "▸ Reconfigure":
 		runSetupWizard()
+		discoverGateway()
 		initClients()
 		return nil
 	case "✕ Exit":
@@ -573,7 +574,7 @@ func runSetupWizard() {
 		fallback string
 		secret   bool
 	}{
-		{"Gateway URL", &cfg.GatewayURL, "https://localhost:7190", false},
+		{"Gateway URL", &cfg.GatewayURL, "https://igw.airlocks.io", false},
 		{"Client ID", &cfg.ClientID, "", false},
 		{"Client Secret", &cfg.ClientSecret, "", true},
 		{"Enforcer ID", &cfg.EnforcerID, "enf-test", false},
@@ -626,8 +627,14 @@ func discoverGateway() {
 			dim.Printf("Keycloak: %s\n", keycloakURL)
 			return
 		}
+		yellow.Printf("⚠ Discovery did not return a valid Keycloak URL. Sign In will be unavailable until reconfigured.\n")
+		return
 	}
-	dim.Printf("Discovery failed — using default: %s\n", keycloakURL)
+	if err != nil {
+		yellow.Printf("⚠ Could not reach gateway at %s — Sign In will be unavailable until reconfigured.\n", cfg.GatewayURL)
+	} else {
+		yellow.Printf("⚠ Gateway discovery returned status %d — Sign In will be unavailable until reconfigured.\n", resp.StatusCode)
+	}
 }
 
 func initClients() {
@@ -696,7 +703,7 @@ func loadConfig() {
 		json.Unmarshal(data, &cfg)
 	}
 	if cfg.GatewayURL == "" {
-		cfg.GatewayURL = "https://localhost:7190"
+		cfg.GatewayURL = "https://igw.airlocks.io"
 	}
 	if cfg.EnforcerID == "" {
 		cfg.EnforcerID = "enf-test"

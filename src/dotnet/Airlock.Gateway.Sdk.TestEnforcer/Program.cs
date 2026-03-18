@@ -14,7 +14,7 @@ namespace Airlock.Gateway.Sdk.TestEnforcer;
 // ── Persistent Configuration ────────────────────────────────────────────
 class EnforcerConfig
 {
-    public string GatewayUrl { get; set; } = "https://localhost:7190";
+    public string GatewayUrl { get; set; } = "https://igw.airlocks.io";
     public string ClientId { get; set; } = "";
     public string ClientSecret { get; set; } = "";
     public string DeviceId { get; set; } = "";
@@ -54,7 +54,7 @@ class Program
     static AirlockGatewayClient? _gwClient;
     static CancellationTokenSource? _heartbeatCts;
     static string? _lastRequestId;
-    static string _keycloakUrl = "http://localhost:18080/realms/airlock";
+    static string _keycloakUrl = "";
 
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
@@ -102,7 +102,7 @@ class Program
                     case "> Withdraw": await DoWithdraw(); break;
                     case "> Unpair": await DoUnpair(); break;
                     case "> Sign Out": await DoSignOut(); break;
-                    case "> Reconfigure": await RunSetupWizard(); InitClients(); break;
+                    case "> Reconfigure": await RunSetupWizard(); DiscoverGateway(); InitClients(); break;
                     case "x Exit":
                         _heartbeatCts?.Cancel();
                         AnsiConsole.MarkupLine("[dim]Goodbye![/]");
@@ -596,7 +596,7 @@ class Program
             })
             { Timeout = TimeSpan.FromSeconds(5) };
 
-            var resp = http.GetAsync($"{_config.GatewayUrl}/v1/integrations/discovery").Result;
+            var resp = http.GetAsync($"{_config.GatewayUrl.TrimEnd('/')}/v1/integrations/discovery").Result;
             if (resp.IsSuccessStatusCode)
             {
                 var json = resp.Content.ReadAsStringAsync().Result;
@@ -606,13 +606,15 @@ class Program
                     !string.IsNullOrEmpty(baseUrl.GetString()))
                 {
                     _keycloakUrl = baseUrl.GetString()!;
+                    AnsiConsole.MarkupLine($"[dim]Keycloak: {Markup.Escape(_keycloakUrl)}[/]");
+                    return;
                 }
             }
-            AnsiConsole.MarkupLine($"[dim]Keycloak: {Markup.Escape(_keycloakUrl)}[/]");
+            AnsiConsole.MarkupLine("[yellow]⚠ Discovery did not return a valid Keycloak URL. Sign In will be unavailable until reconfigured.[/]");
         }
         catch
         {
-            AnsiConsole.MarkupLine($"[dim yellow]Discovery failed — using default: {Markup.Escape(_keycloakUrl)}[/]");
+            AnsiConsole.MarkupLine($"[yellow]⚠ Could not reach gateway at {Markup.Escape(_config.GatewayUrl)} — Sign In will be unavailable until reconfigured.[/]");
         }
     }
 

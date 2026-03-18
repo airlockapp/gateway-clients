@@ -32,7 +32,7 @@ interface Config {
 const CONFIG_PATH = path.join(os.homedir(), '.airlock', 'test-enforcer-typescript.json');
 
 let cfg: Config = {
-    gatewayUrl: 'https://localhost:7190',
+    gatewayUrl: 'https://igw.airlocks.io',
     clientId: '',
     clientSecret: '',
     enforcerId: 'enf-test',
@@ -46,7 +46,7 @@ let cfg: Config = {
 
 let authClient: AirlockAuthClient;
 let gwClient: AirlockGatewayClient;
-let keycloakUrl = 'http://localhost:18080/realms/airlock';
+let keycloakUrl = '';
 let lastRequestId = '';
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -101,10 +101,10 @@ async function discoverGateway(): Promise<void> {
                 return;
             }
         }
+        console.log(chalk.yellow('⚠ Discovery did not return a valid Keycloak URL. Sign In will be unavailable until reconfigured.'));
     } catch {
-        // fallback
+        console.log(chalk.yellow(`⚠ Could not reach gateway at ${cfg.gatewayUrl} — Sign In will be unavailable until reconfigured.`));
     }
-    console.log(chalk.dim.yellow(`Discovery failed — using default: ${keycloakUrl}`));
 }
 
 // ── Client Init ─────────────────────────────────────────────────────
@@ -541,6 +541,7 @@ async function main(): Promise<void> {
                 case 'signout': await doSignOut(); break;
                 case 'reconfig':
                     await runSetupWizard();
+                    await discoverGateway();
                     initClients();
                     break;
                 case 'exit':

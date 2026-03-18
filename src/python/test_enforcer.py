@@ -31,7 +31,7 @@ CONFIG_PATH = Path.home() / ".airlock" / "test-enforcer-python.json"
 # ── Persistent Configuration ────────────────────────────────────────
 class Config:
     def __init__(self):
-        self.gateway_url = "https://localhost:7190"
+        self.gateway_url = "https://igw.airlocks.io"
         self.client_id = ""
         self.client_secret = ""
         self.enforcer_id = "enf-test"
@@ -75,7 +75,7 @@ class Config:
 cfg = Config()
 auth_client: AirlockAuthClient = None
 gw_client: AirlockGatewayClient = None
-keycloak_url = "http://localhost:18080/realms/airlock"
+keycloak_url = ""
 last_request_id: str = ""
 heartbeat_task: asyncio.Task = None
 
@@ -125,9 +125,9 @@ def discover_gateway():
                     keycloak_url = base
                     console.print(f"[dim]Keycloak: {keycloak_url}[/dim]")
                     return
+            console.print("[yellow]⚠ Discovery did not return a valid Keycloak URL. Sign In will be unavailable until reconfigured.[/yellow]")
     except Exception:
-        pass
-    console.print(f"[dim yellow]Discovery failed — using default: {keycloak_url}[/dim yellow]")
+        console.print(f"[yellow]⚠ Could not reach gateway at {cfg.gateway_url} — Sign In will be unavailable until reconfigured.[/yellow]")
 
 
 def init_clients():
@@ -539,6 +539,7 @@ async def main():
                 await do_sign_out()
             elif choice == "▸ Reconfigure":
                 await run_setup_wizard()
+                discover_gateway()
                 init_clients()
             elif choice == "✕ Exit":
                 stop_heartbeat()

@@ -34,7 +34,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            gateway_url: "https://localhost:7190".to_string(),
+            gateway_url: "https://igw.airlocks.io".to_string(),
             client_id: String::new(),
             client_secret: String::new(),
             enforcer_id: "enf-test".to_string(),
@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timeout(Duration::from_secs(120))
         .build()?;
 
-    let auth_client = AirlockAuthClient::new(AirlockAuthOptions {
+    let mut auth_client = AirlockAuthClient::new(AirlockAuthOptions {
         keycloak_realm_url: keycloak_url,
         oidc_client_id: "airlock-integrations".to_string(),
         reqwest_client: Some(http.clone()),
@@ -165,8 +165,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "▸ Sign Out" => do_sign_out(&auth_client, &mut gw_client, &mut cfg, &heartbeat_handle).await,
             "▸ Reconfigure" => {
                 run_setup_wizard(&mut cfg);
-                // Reinit clients would need new client instances; for simplicity just inform user
-                println!("{}", style("⚠ Restart the enforcer to apply new credentials.").yellow());
+                let new_keycloak = discover_gateway(&cfg.gateway_url).await;
+                // Rebuild HTTP client
+                let new_http = reqwest::Client::builder()
+                    .danger_accept_invalid_certs(true)
+                    .timeout(Duration::from_secs(120))
+                    .build()
+                    .unwrap();
+                // Rebuild auth client
+                auth_client = AirlockAuthClient::new(AirlockAuthOptions {
+                    keycloak_realm_url: new_keycloak,
+                    oidc_client_id: "airlock-integrations".to_string(),
+                    reqwest_client: Some(new_http.clone()),
+                });
+                // Rebuild gateway client
+                gw_client = AirlockGatewayClient::with_credentials_and_http_client(
+                    &cfg.gateway_url,
+                    &cfg.client_id,
+                    &cfg.client_secret,
+                    new_http,
+                );
+                println!("{}", style("✓ Clients reinitialized with new configuration.").green());
                 Ok(())
             }
             "✕ Exit" => {
@@ -234,7 +253,6 @@ async fn print_status(auth: &AirlockAuthClient, cfg: &Config) {
 
 // ── Gateway Discovery ───────────────────────────────────────────────
 async fn discover_gateway(gateway_url: &str) -> String {
-    let default = "http://localhost:18080/realms/airlock".to_string();
     let url = format!("{}/v1/integrations/discovery", gateway_url.trim_end_matches('/'));
 
     let client = match reqwest::Client::builder()
@@ -244,8 +262,8 @@ async fn discover_gateway(gateway_url: &str) -> String {
     {
         Ok(c) => c,
         Err(_) => {
-            println!("{}", style(format!("Discovery failed — using default: {}", default)).dim().yellow());
-            return default;
+            println!("{}", style(format!("⚠ Could not reach gateway at {} — Sign In will be unavailable until reconfigured.", gateway_url)).yellow());
+            return String::new();
         }
     };
 
@@ -258,12 +276,12 @@ async fn discover_gateway(gateway_url: &str) -> String {
                     return result;
                 }
             }
-            println!("{}", style(format!("Discovery failed — using default: {}", default)).dim().yellow());
-            default
+            println!("{}", style("⚠ Discovery did not return a valid Keycloak URL. Sign In will be unavailable until reconfigured.").yellow());
+            String::new()
         }
         _ => {
-            println!("{}", style(format!("Discovery failed — using default: {}", default)).dim().yellow());
-            default
+            println!("{}", style(format!("⚠ Could not reach gateway at {} — Sign In will be unavailable until reconfigured.", gateway_url)).yellow());
+            String::new()
         }
     }
 }
