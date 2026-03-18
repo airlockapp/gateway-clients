@@ -1,6 +1,6 @@
 use airlock_gateway::{
     AirlockAuthClient, AirlockAuthOptions, AirlockGatewayClient, GatewayError,
-    ArtifactSubmitRequest, CiphertextRef, PairingInitiateRequest, PresenceHeartbeatRequest,
+    ArtifactSubmitRequest, EncryptedPayload, PairingInitiateRequest, PresenceHeartbeatRequest,
 };
 use console::style;
 use dialoguer::{Confirm, Input, Password, Select};
@@ -25,6 +25,8 @@ struct Config {
     workspace_name: String,
     device_id: String,
     routing_token: String,
+    #[serde(default)]
+    encryption_key: String,
     access_token: String,
     refresh_token: String,
     #[serde(default)]
@@ -41,6 +43,7 @@ impl Default for Config {
             workspace_name: "default".to_string(),
             device_id: String::new(),
             routing_token: String::new(),
+            encryption_key: String::new(),
             access_token: String::new(),
             refresh_token: String::new(),
             token_expires_at: None,
@@ -367,13 +370,16 @@ async fn do_pair(
             .interact_text()?;
     }
 
+    // Generate X25519 keypair for ECDH key agreement
+    let x25519kp = airlock_gateway::crypto::generate_x25519_keypair();
+
     let req = PairingInitiateRequest {
         device_id: cfg.device_id.clone(),
         enforcer_id: cfg.enforcer_id.clone(),
         enforcer_label: Some("Test Enforcer Rust".to_string()),
         workspace_name: Some(cfg.workspace_name.clone()),
         gateway_url: None,
-        x25519_public_key: None,
+        x25519_public_key: Some(x25519kp.public_key.clone()),
     };
 
     let res = gw.initiate_pairing(&req).await?;
@@ -393,6 +399,30 @@ async fn do_pair(
 
         if state == "completed" {
             cfg.routing_token = status.routing_token.unwrap_or_default();
+
+            // Extract approver's X25519 public key from responseJson and derive shared key
+            if let Some(ref resp_json) = status.response_json {
+                if let Ok(resp_data) = serde_json::from_str::<serde_json::Value>(resp_json) {
+                    if let Some(approver_pub_key) = resp_data.get("x25519PublicKey").and_then(|v| v.as_str()) {
+                        if !approver_pub_key.is_empty() {
+                            match airlock_gateway::crypto::derive_shared_key(&x25519kp.private_key, approver_pub_key) {
+                                Ok(derived) => {
+                                    cfg.encryption_key = derived;
+                                    println!("{}", style("✓ X25519 ECDH key agreement completed — E2E encryption enabled").green());
+                                }
+                                Err(e) => {
+                                    println!("{}", style(format!("⚠ Failed to derive encryption key: {}", e)).yellow());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if cfg.encryption_key.is_empty() {
+                println!("{}", style("⚠ No approver X25519 key received — encryption will use random test keys").yellow());
+            }
+
             save_config(cfg);
             println!("{}", style("✓ Paired! Routing token saved.").green());
             start_heartbeat(gw, cfg, hb).await;
@@ -437,7 +467,7 @@ async fn do_submit(
         enforcer_id: cfg.enforcer_id.clone(),
         artifact_type: Some("command-approval".to_string()),
         artifact_hash,
-        ciphertext: CiphertextRef {
+        ciphertext: EncryptedPayload {
             alg: "xchacha20-poly1305".to_string(),
             data: to_hex(&data_bytes),
             nonce: Some(to_hex(&nonce_bytes)),
