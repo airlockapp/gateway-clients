@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Airlock.Gateway.Sdk.Crypto;
 using Airlock.Gateway.Sdk.Models;
 using Xunit;
 
@@ -45,7 +46,7 @@ public class ModelSerializationTests
         {
             ArtifactType = "command-approval",
             ArtifactHash = "hash123",
-            Ciphertext = new CiphertextRef
+            Ciphertext = new EncryptedPayload
             {
                 Alg = "aes-256-gcm",
                 Data = "encrypted",
@@ -77,7 +78,7 @@ public class ModelSerializationTests
         {
             ArtifactType = "command-approval",
             ArtifactHash = "hash123",
-            Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+            Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
         };
 
         var json = JsonSerializer.Serialize(body, Opts);

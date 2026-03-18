@@ -29,7 +29,7 @@ func main() {
     requestID, err := client.SubmitArtifact(airlock.ArtifactSubmitRequest{
         EnforcerID:   "my-enforcer",
         ArtifactHash: "sha256-hash",
-        Ciphertext: airlock.CiphertextRef{
+        Ciphertext: airlock.EncryptedPayload{
             Alg:   "aes-256-gcm",
             Data:  "base64-encrypted-content",
             Nonce: "nonce",
@@ -127,6 +127,16 @@ if gwErr, ok := err.(*airlock.GatewayError); ok {
 ```bash
 go test ./airlock/...
 ```
+
+## Encryption
+
+The SDK includes crypto helpers for **X25519 ECDH key exchange** and **AES-256-GCM** encryption/decryption:
+
+- `GenerateX25519KeyPair()` — generates a raw 32-byte X25519 keypair using `crypto/ecdh`
+- `DeriveSharedKey(myPrivate, peerPublic)` — derives a shared AES-256 key via ECDH + HKDF-SHA256 (info: `HARP-E2E-AES256GCM`)
+- `AesGcmEncrypt(key, plaintext)` / `AesGcmDecrypt(key, payload)` — AES-256-GCM with detached nonce and tag
+
+During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.ResponseJSON`.
 
 ## Test Enforcer CLI
 

@@ -4,7 +4,8 @@ use serde_json::Value;
 use sha2::{Sha256, Digest};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::Rng;
+use rand::rngs::OsRng;
+use rand::RngCore;
 use std::time::{Duration, Instant, SystemTime};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -18,8 +19,8 @@ use crate::errors::GatewayError;
 
 /// Generate a random code_verifier for PKCE (43-128 url-safe chars).
 fn generate_code_verifier() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let mut bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(&bytes)
 }
 
@@ -31,8 +32,8 @@ fn compute_code_challenge(verifier: &str) -> String {
 
 /// Generate a random state parameter for CSRF protection (hex string).
 fn generate_state() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: Vec<u8> = (0..16).map(|_| rng.gen()).collect();
+    let mut bytes = [0u8; 16];
+    OsRng.fill_bytes(&mut bytes);
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 

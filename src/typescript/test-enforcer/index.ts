@@ -24,6 +24,7 @@ interface Config {
     workspaceName: string;
     deviceId: string;
     routingToken: string;
+    encryptionKey: string;
     accessToken: string;
     refreshToken: string;
     tokenExpiresAt: number;
@@ -39,6 +40,7 @@ let cfg: Config = {
     workspaceName: 'default',
     deviceId: '',
     routingToken: '',
+    encryptionKey: '',
     accessToken: '',
     refreshToken: '',
     tokenExpiresAt: 0,
@@ -236,11 +238,18 @@ async function doPair(): Promise<void> {
         cfg.deviceId = await input({ message: 'Device ID:', default: defaultId }) || defaultId;
     }
 
+    // Generate X25519 keypair for ECDH key agreement (libsodium — matches harp-samples)
+    const sodium = require('libsodium-wrappers-sumo');
+    await sodium.ready;
+    const x25519kp = sodium.crypto_box_keypair();
+    const x25519PubB64Url = Buffer.from(x25519kp.publicKey).toString('base64url');
+
     const res = await gwClient.initiatePairing({
         deviceId: cfg.deviceId,
         enforcerId: cfg.enforcerId,
         enforcerLabel: 'Test Enforcer TypeScript',
         workspaceName: cfg.workspaceName,
+        x25519PublicKey: x25519PubB64Url,
     });
 
     console.log(chalk.yellow('┌─ Pairing Initiated ─────────────────────────────┐'));
@@ -258,6 +267,35 @@ async function doPair(): Promise<void> {
 
         if (state === 'completed') {
             cfg.routingToken = (status as any).routingToken || '';
+
+            // Extract approver's X25519 public key from responseJson and derive shared key
+            const respJson = (status as any).responseJson;
+            if (respJson) {
+                try {
+                    const respData = JSON.parse(respJson);
+                    const approverPubKeyB64 = respData.x25519PublicKey;
+                    if (approverPubKeyB64) {
+                        const approverPubRaw = Buffer.from(approverPubKeyB64, 'base64url');
+                        // X25519 ECDH via libsodium scalar multiplication (matches harp-samples)
+                        const sharedSecret = sodium.crypto_scalarmult(
+                            x25519kp.privateKey,
+                            new Uint8Array(approverPubRaw),
+                        );
+                        // HKDF-SHA256 to derive AES-256 key
+                        const derived = crypto.hkdfSync('sha256', Buffer.from(sharedSecret),
+                            Buffer.alloc(0), Buffer.from('HARP-E2E-AES256GCM', 'utf8'), 32);
+                        cfg.encryptionKey = Buffer.from(derived).toString('base64url');
+                        console.log(chalk.green('✓ X25519 ECDH key agreement completed — E2E encryption enabled'));
+                    }
+                } catch (ex: any) {
+                    console.log(chalk.yellow(`⚠ Failed to derive encryption key: ${ex.message}`));
+                }
+            }
+
+            if (!cfg.encryptionKey) {
+                console.log(chalk.yellow('⚠ No approver X25519 key received — encryption will use random test keys'));
+            }
+
             saveConfig();
             console.log(chalk.green('✓ Paired! Routing token saved.'));
             startHeartbeat();

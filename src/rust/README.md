@@ -29,7 +29,7 @@ async fn main() -> Result<(), GatewayError> {
     let request_id = client.submit_artifact(ArtifactSubmitRequest {
         enforcer_id: "my-enforcer".into(),
         artifact_hash: "sha256-hash".into(),
-        ciphertext: CiphertextRef {
+        ciphertext: EncryptedPayload {
             alg: "aes-256-gcm".into(),
             data: "base64-encrypted-content".into(),
             nonce: Some("nonce".into()),
@@ -124,6 +124,16 @@ match client.submit_artifact(req).await {
 ```bash
 cargo test
 ```
+
+## Encryption
+
+The SDK includes crypto helpers for **X25519 ECDH key exchange** and **AES-256-GCM** encryption/decryption using `x25519_dalek` and `aes-gcm`:
+
+- `generate_x25519_keypair()` — generates a raw 32-byte X25519 keypair (base64url encoded)
+- `derive_shared_key(my_private, peer_public)` — derives a shared AES-256 key via ECDH + HKDF-SHA256 (info: `HARP-E2E-AES256GCM`)
+- `aes_gcm_encrypt(key, plaintext)` / `aes_gcm_decrypt(key, payload)` — AES-256-GCM with detached nonce and tag
+
+During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.response_json`.
 
 ## Test Enforcer CLI
 

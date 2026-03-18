@@ -31,8 +31,8 @@ func TestHarpEnvelope_RoundTrips(t *testing.T) {
 	}
 }
 
-func TestCiphertextRef_OmitsEmpty(t *testing.T) {
-	ref := CiphertextRef{Alg: "aes-256-gcm", Data: "enc"}
+func TestEncryptedPayload_OmitsEmpty(t *testing.T) {
+	ref := EncryptedPayload{Alg: "aes-256-gcm", Data: "enc"}
 
 	data, _ := json.Marshal(ref)
 	var m map[string]interface{}

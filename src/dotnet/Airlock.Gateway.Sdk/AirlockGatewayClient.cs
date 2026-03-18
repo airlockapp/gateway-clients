@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Airlock.Gateway.Sdk.Crypto;
 using Airlock.Gateway.Sdk.Models;
 
 namespace Airlock.Gateway.Sdk
@@ -322,6 +323,83 @@ namespace Airlock.Gateway.Sdk
             return doc.RootElement.TryGetProperty("status", out var s)
                 ? s.GetString() ?? "unknown"
                 : "unknown";
+        }
+
+        // ── Transparent Encryption ──────────────────────────────────
+
+        /// <inheritdoc />
+        public async Task<string> EncryptAndSubmitArtifactAsync(
+            EncryptedArtifactRequest request, CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(request.PlaintextPayload))
+                throw new ArgumentException("PlaintextPayload is required.", nameof(request));
+            if (string.IsNullOrEmpty(request.EncryptionKeyBase64Url))
+                throw new ArgumentException("EncryptionKeyBase64Url is required.", nameof(request));
+
+            // 1. Canonicalize the plaintext JSON (RFC 8785 JCS)
+            var canonical = CanonicalJson.Canonicalize(request.PlaintextPayload);
+
+            // 2. Hash the canonical form (SHA-256)
+            var artifactHash = CryptoHelpers.Sha256Hex(canonical);
+
+            // 3. Encrypt with AES-256-GCM
+            var ciphertext = CryptoHelpers.AesGcmEncrypt(request.EncryptionKeyBase64Url, canonical);
+
+            // 4. Submit via the existing method
+            var submitRequest = new ArtifactSubmitRequest
+            {
+                EnforcerId = request.EnforcerId,
+                ArtifactType = request.ArtifactType,
+                ArtifactHash = artifactHash,
+                Ciphertext = ciphertext,
+                ExpiresAt = request.ExpiresAt,
+                Metadata = request.Metadata,
+                RequestId = request.RequestId
+            };
+
+            return await SubmitArtifactAsync(submitRequest, ct).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        public DecisionVerificationResult VerifyDecision(
+            DecisionDeliverEnvelope decision,
+            string expectedArtifactHash,
+            string signerPublicKeyBase64Url)
+        {
+            var body = decision.Body;
+            if (body == null)
+                return DecisionVerificationResult.Failure("Decision body is null.");
+
+            // 1. Check artifact binding
+            if (!string.Equals(body.ArtifactHash, expectedArtifactHash, StringComparison.OrdinalIgnoreCase))
+                return DecisionVerificationResult.Failure(
+                    $"Artifact hash mismatch: expected '{expectedArtifactHash}', got '{body.ArtifactHash}'.");
+
+            // 2. Verify Ed25519 signature if present
+            if (!string.IsNullOrEmpty(body.Signature) && !string.IsNullOrEmpty(body.DecisionHash))
+            {
+                // Build the signable payload: canonical JSON of the decision fields (excluding signature)
+                var signable = new
+                {
+                    requestId = decision.RequestId,
+                    artifactHash = body.ArtifactHash,
+                    decision = body.Decision,
+                    reason = body.Reason,
+                    nonce = body.Nonce,
+                    signerKeyId = body.SignerKeyId
+                };
+
+                var canonicalSignable = CanonicalJson.Serialize(signable);
+                var signableBytes = Encoding.UTF8.GetBytes(canonicalSignable);
+
+                var valid = CryptoHelpers.Ed25519Verify(
+                    signerPublicKeyBase64Url, signableBytes, body.Signature);
+
+                if (!valid)
+                    return DecisionVerificationResult.Failure("Ed25519 signature verification failed.");
+            }
+
+            return DecisionVerificationResult.Success(body.Decision);
         }
     }
 }

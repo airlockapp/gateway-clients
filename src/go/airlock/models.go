@@ -29,20 +29,11 @@ type RecipInfo struct {
 
 // ── Artifact Submit ─────────────────────────────────────────────
 
-// CiphertextRef is an encrypted payload reference.
-type CiphertextRef struct {
-	Alg   string `json:"alg"`
-	Data  string `json:"data"`
-	Nonce string `json:"nonce,omitempty"`
-	Tag   string `json:"tag,omitempty"`
-	Aad   string `json:"aad,omitempty"`
-}
-
 // ArtifactSubmitBody is the body of an artifact.submit envelope.
 type ArtifactSubmitBody struct {
 	ArtifactType string            `json:"artifactType"`
 	ArtifactHash string            `json:"artifactHash"`
-	Ciphertext   CiphertextRef     `json:"ciphertext"`
+	Ciphertext   EncryptedPayload  `json:"ciphertext"`
 	ExpiresAt    string            `json:"expiresAt"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
@@ -52,10 +43,22 @@ type ArtifactSubmitRequest struct {
 	EnforcerID   string
 	ArtifactType string
 	ArtifactHash string
-	Ciphertext   CiphertextRef
+	Ciphertext   EncryptedPayload
 	ExpiresAt    *time.Time
 	Metadata     map[string]string
 	RequestID    string
+}
+
+// EncryptedArtifactRequest holds options for transparent encrypted submission.
+// The SDK handles canonicalization, hashing, and AES-256-GCM encryption.
+type EncryptedArtifactRequest struct {
+	EnforcerID          string
+	ArtifactType        string
+	PlaintextPayload    string
+	EncryptionKeyBase64 string
+	ExpiresAt           *time.Time
+	Metadata            map[string]string
+	RequestID           string
 }
 
 // ── Decision ────────────────────────────────────────────────────

@@ -1,23 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>Airlock.Gateway.Sdk</RootNamespace>
     <AssemblyName>Airlock.Gateway.Sdk</AssemblyName>
     <PackageId>Airlock.Gateway.Sdk</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Airlock</Authors>
-    <Description>Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence.</Description>
-    <PackageTags>airlock;gateway;sdk;harp;approval</PackageTags>
+    <Description>Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence. Includes transparent AES-256-GCM encryption with X25519 ECDH key exchange.</Description>
+    <PackageTags>airlock;gateway;sdk;harp;approval;encryption</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="9.0.3" />
+    <PackageReference Include="NSec.Cryptography" Version="25.4.0" />
+    <PackageReference Include="jsoncanonicalizer" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

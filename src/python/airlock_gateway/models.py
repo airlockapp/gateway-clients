@@ -42,7 +42,7 @@ class HarpEnvelope(BaseModel):
 # ── Artifact Submit ──────────────────────────────────────────────
 
 
-class CiphertextRef(BaseModel):
+class EncryptedPayload(BaseModel):
     alg: str = ""
     data: str = ""
     nonce: Optional[str] = None
@@ -56,7 +56,7 @@ class ArtifactSubmitRequest(BaseModel):
     enforcer_id: str = Field(..., alias="enforcerId")
     artifact_type: str = Field("command-approval", alias="artifactType")
     artifact_hash: str = Field(..., alias="artifactHash")
-    ciphertext: CiphertextRef
+    ciphertext: EncryptedPayload
     expires_at: Optional[datetime] = Field(None, alias="expiresAt")
     metadata: Optional[Dict[str, str]] = None
     request_id: Optional[str] = Field(None, alias="requestId")

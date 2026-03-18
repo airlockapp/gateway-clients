@@ -49,18 +49,7 @@ pub struct HarpEnvelope {
 
 // ── Artifact Submit ─────────────────────────────────────────────
 
-/// Encrypted payload reference.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CiphertextRef {
-    pub alg: String,
-    pub data: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tag: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<String>,
-}
+use crate::crypto::EncryptedPayload;
 
 /// Body of an artifact.submit envelope.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,7 +57,7 @@ pub struct CiphertextRef {
 pub struct ArtifactSubmitBody {
     pub artifact_type: String,
     pub artifact_hash: String,
-    pub ciphertext: CiphertextRef,
+    pub ciphertext: EncryptedPayload,
     pub expires_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
@@ -80,7 +69,7 @@ pub struct ArtifactSubmitRequest {
     pub enforcer_id: String,
     pub artifact_type: Option<String>,
     pub artifact_hash: String,
-    pub ciphertext: CiphertextRef,
+    pub ciphertext: EncryptedPayload,
     pub expires_at: Option<String>,
     pub metadata: Option<HashMap<String, String>>,
     pub request_id: Option<String>,

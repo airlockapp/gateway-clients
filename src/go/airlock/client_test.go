@@ -72,7 +72,7 @@ func TestSubmitArtifact(t *testing.T) {
 	reqID, err := client.SubmitArtifact(ArtifactSubmitRequest{
 		EnforcerID:   "enforcer-1",
 		ArtifactHash: "abc123",
-		Ciphertext:   CiphertextRef{Alg: "aes-256-gcm", Data: "encrypted"},
+		Ciphertext:   EncryptedPayload{Alg: "aes-256-gcm", Data: "encrypted"},
 		RequestID:    "req-test123",
 	})
 
@@ -94,7 +94,7 @@ func TestSubmitArtifact_GeneratesRequestID(t *testing.T) {
 	reqID, err := client.SubmitArtifact(ArtifactSubmitRequest{
 		EnforcerID:   "e1",
 		ArtifactHash: "h1",
-		Ciphertext:   CiphertextRef{Alg: "aes-256-gcm", Data: "d"},
+		Ciphertext:   EncryptedPayload{Alg: "aes-256-gcm", Data: "d"},
 	})
 
 	if err != nil {
@@ -115,7 +115,7 @@ func TestSubmitArtifact_ReturnsGatewayErrorOnNoApprover(t *testing.T) {
 	_, err := client.SubmitArtifact(ArtifactSubmitRequest{
 		EnforcerID:   "e1",
 		ArtifactHash: "h1",
-		Ciphertext:   CiphertextRef{Alg: "aes-256-gcm", Data: "d"},
+		Ciphertext:   EncryptedPayload{Alg: "aes-256-gcm", Data: "d"},
 	})
 
 	gwErr, ok := err.(*GatewayError)
@@ -136,7 +136,7 @@ func TestSubmitArtifact_QuotaExceeded(t *testing.T) {
 
 	_, err := client.SubmitArtifact(ArtifactSubmitRequest{
 		EnforcerID: "e1", ArtifactHash: "h1",
-		Ciphertext: CiphertextRef{Alg: "aes-256-gcm", Data: "d"},
+		Ciphertext: EncryptedPayload{Alg: "aes-256-gcm", Data: "d"},
 	})
 
 	gwErr := err.(*GatewayError)
@@ -154,7 +154,7 @@ func TestSubmitArtifact_Conflict(t *testing.T) {
 
 	_, err := client.SubmitArtifact(ArtifactSubmitRequest{
 		EnforcerID: "e1", ArtifactHash: "h1",
-		Ciphertext: CiphertextRef{Alg: "aes-256-gcm", Data: "d"},
+		Ciphertext: EncryptedPayload{Alg: "aes-256-gcm", Data: "d"},
 	})
 
 	gwErr := err.(*GatewayError)

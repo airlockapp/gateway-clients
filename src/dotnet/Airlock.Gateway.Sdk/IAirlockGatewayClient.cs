@@ -61,9 +61,53 @@ namespace Airlock.Gateway.Sdk
 
         // ── Consent ─────────────────────────────────────────────────
 
-        /// <summary>GET /v1/consent/status — Check if the user has consented to this enforcer app.</summary>
+        /// <summary>POST /v1/consent/status — Check if the user has consented to this enforcer app.</summary>
         /// <returns>Consent status string ("approved"). Throws AirlockGatewayException with error_code
         /// "app_consent_required" or "app_consent_pending" if consent is not granted.</returns>
         Task<string> CheckConsentAsync(CancellationToken ct = default);
+
+        // ── Transparent Encryption ──────────────────────────────────
+
+        /// <summary>
+        /// Encrypt a plaintext payload with AES-256-GCM and submit as an artifact.
+        /// Handles canonicalization, hashing, encryption, and HARP envelope construction.
+        /// </summary>
+        /// <returns>The request ID of the submitted artifact.</returns>
+        Task<string> EncryptAndSubmitArtifactAsync(EncryptedArtifactRequest request, CancellationToken ct = default);
+
+        /// <summary>
+        /// Verify a decision envelope: Ed25519 signature, artifact binding, and expiry.
+        /// </summary>
+        /// <param name="decision">The decision envelope from WaitForDecisionAsync.</param>
+        /// <param name="expectedArtifactHash">The SHA-256 hash of the original artifact.</param>
+        /// <param name="signerPublicKeyBase64Url">The signer's Ed25519 public key (base64url).</param>
+        /// <returns>A verification result.</returns>
+        DecisionVerificationResult VerifyDecision(
+            DecisionDeliverEnvelope decision,
+            string expectedArtifactHash,
+            string signerPublicKeyBase64Url);
+    }
+
+    /// <summary>
+    /// Result of decision verification.
+    /// </summary>
+    public sealed class DecisionVerificationResult
+    {
+        /// <summary>Whether all checks passed.</summary>
+        public bool IsValid { get; init; }
+
+        /// <summary>Reason for failure (null if valid).</summary>
+        public string? FailureReason { get; init; }
+
+        /// <summary>The decision value (approve/reject) if valid.</summary>
+        public string? Decision { get; init; }
+
+        /// <summary>Create a successful result.</summary>
+        internal static DecisionVerificationResult Success(string decision)
+            => new() { IsValid = true, Decision = decision };
+
+        /// <summary>Create a failure result.</summary>
+        internal static DecisionVerificationResult Failure(string reason)
+            => new() { IsValid = false, FailureReason = reason };
     }
 }

@@ -8,7 +8,7 @@ import pytest
 
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
-    CiphertextRef,
+    EncryptedPayload,
     DecisionDeliverBody,
     EchoResponse,
     HarpEnvelope,
@@ -48,7 +48,7 @@ def test_artifact_submit_body_all_fields():
         enforcer_id="e1",
         artifact_type="command-approval",
         artifact_hash="hash123",
-        ciphertext=CiphertextRef(
+        ciphertext=EncryptedPayload(
             alg="aes-256-gcm", data="enc", nonce="n1", tag="t1", aad="a1"
         ),
         metadata={"routingToken": "rt-1"},
@@ -65,7 +65,7 @@ def test_artifact_submit_nullable_metadata():
     body = ArtifactSubmitRequest(
         enforcer_id="e1",
         artifact_hash="h1",
-        ciphertext=CiphertextRef(alg="aes-256-gcm", data="d"),
+        ciphertext=EncryptedPayload(alg="aes-256-gcm", data="d"),
     )
 
     data = body.model_dump(by_alias=True, exclude_none=True)

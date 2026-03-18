@@ -248,12 +248,17 @@ async def do_pair():
         default_id = f"dev-{socket.gethostname().lower()}"
         cfg.device_id = await questionary.text("Device ID:", default=default_id).ask_async() or default_id
 
+    # Generate X25519 keypair for ECDH key agreement
+    from airlock_gateway.crypto_helpers import generate_x25519_keypair, derive_shared_key
+    x25519kp = generate_x25519_keypair()
+
     from airlock_gateway.models import PairingInitiateRequest
     req = PairingInitiateRequest(
         device_id=cfg.device_id,
         enforcer_id=cfg.enforcer_id,
         enforcer_label="Test Enforcer Python",
         workspace_name=cfg.workspace_name,
+        x25519_public_key=x25519kp.public_key,
     )
 
     res = await gw_client.initiate_pairing(req)
@@ -276,6 +281,22 @@ async def do_pair():
 
             if state == "completed":
                 cfg.routing_token = ps.routing_token
+
+                # Extract approver's X25519 public key from responseJson and derive shared key
+                if ps.response_json:
+                    try:
+                        import json as _json
+                        resp_data = _json.loads(ps.response_json)
+                        approver_pub_key = resp_data.get("x25519PublicKey", "")
+                        if approver_pub_key:
+                            cfg.encryption_key = derive_shared_key(x25519kp.private_key, approver_pub_key)
+                            console.print("[green]✓ X25519 ECDH key agreement completed — E2E encryption enabled[/green]")
+                    except Exception as ex:
+                        console.print(f"[yellow]⚠ Failed to derive encryption key: {ex}[/yellow]")
+
+                if not getattr(cfg, "encryption_key", ""):
+                    console.print("[yellow]⚠ No approver X25519 key received — encryption will use random test keys[/yellow]")
+
                 save_config()
                 console.print("[green]✓ Paired! Routing token saved.[/green]")
                 start_heartbeat()
@@ -292,28 +313,45 @@ async def do_submit():
     global last_request_id
     await ensure_fresh_token()
 
-    import uuid
-    req_id = f"req-{uuid.uuid4().hex}"
-    artifact_hash = f"hash-{uuid.uuid4().hex[:12]}"
+    import json
+    from airlock_gateway.crypto_helpers import aes_gcm_encrypt, sha256_hex, to_base64url
+    from airlock_gateway.canonical_json import canonicalize
+    from airlock_gateway.models import ArtifactSubmitRequest, EncryptedPayload as EPModel
 
-    nonce = base64.b64encode(secrets.token_bytes(24)).decode()
-    tag = base64.b64encode(secrets.token_bytes(16)).decode()
-    data = base64.b64encode(secrets.token_bytes(64)).decode()
+    # Build plaintext payload
+    plaintext = json.dumps({
+        "requestLabel": "Test approval request from Python enforcer",
+        "command": "python -m pytest",
+        "workspaceName": cfg.workspace_name,
+        "enforcerId": cfg.enforcer_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
 
-    from airlock_gateway.models import ArtifactSubmitRequest, CiphertextRef
+    # Use stored encryption key or generate a test key
+    enc_key = getattr(cfg, "encryption_key", "")
+    if not enc_key:
+        enc_key = to_base64url(secrets.token_bytes(32))
+        console.print("[yellow]⚠ No encryption key from pairing — using random test key[/yellow]")
+
+    # Canonicalize and hash
+    canonical = canonicalize(plaintext)
+    artifact_hash = sha256_hex(canonical)
+
+    # Encrypt with AES-256-GCM
+    encrypted = aes_gcm_encrypt(enc_key, canonical)
+
     req = ArtifactSubmitRequest(
         enforcer_id=cfg.enforcer_id,
         artifact_type="command-approval",
         artifact_hash=artifact_hash,
-        ciphertext=CiphertextRef(alg="xchacha20-poly1305", data=data, nonce=nonce, tag=tag),
-        metadata={"routingToken": cfg.routing_token, "workspaceName": cfg.workspace_name},
-        request_id=req_id,
+        ciphertext=EPModel(alg=encrypted.alg, data=encrypted.data, nonce=encrypted.nonce, tag=encrypted.tag),
+        metadata={"routingToken": cfg.routing_token, "workspaceName": cfg.workspace_name, "requestLabel": "Test approval request from Python enforcer"},
     )
 
-    console.print(f"[dim]Submitting artifact {req_id}...[/dim]")
+    console.print("[dim]Submitting encrypted artifact...[/dim]")
     submitted_id = await gw_client.submit_artifact(req)
-    last_request_id = submitted_id or req_id
-    console.print(f"[green]✓ Submitted: {last_request_id}[/green]")
+    last_request_id = submitted_id or req.request_id
+    console.print(f"[green]✓ Submitted: {last_request_id} (AES-256-GCM encrypted)[/green]")
 
     # Long-poll for decision
     with console.status("Waiting for decision...") as status:

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +29,7 @@ type Config struct {
 	WorkspaceName  string    `json:"workspaceName"`
 	DeviceID       string    `json:"deviceId"`
 	RoutingToken   string    `json:"routingToken"`
+	EncryptionKey  string    `json:"encryptionKey"`
 	AccessToken    string    `json:"accessToken"`
 	RefreshToken   string    `json:"refreshToken"`
 	TokenExpiresAt time.Time `json:"tokenExpiresAt"`
@@ -262,11 +262,18 @@ func doPair() error {
 		cfg.DeviceID = result
 	}
 
+	// Generate X25519 keypair for ECDH key agreement
+	x25519kp, err := airlock.GenerateX25519KeyPair()
+	if err != nil {
+		return fmt.Errorf("generate x25519 keypair: %w", err)
+	}
+
 	req := airlock.PairingInitiateRequest{
-		DeviceID:      cfg.DeviceID,
-		EnforcerID:    cfg.EnforcerID,
-		EnforcerLabel: "Test Enforcer Go",
-		WorkspaceName: cfg.WorkspaceName,
+		DeviceID:        cfg.DeviceID,
+		EnforcerID:      cfg.EnforcerID,
+		EnforcerLabel:   "Test Enforcer Go",
+		WorkspaceName:   cfg.WorkspaceName,
+		X25519PublicKey: x25519kp.PublicKey,
 	}
 
 	res, err := gwClient.InitiatePairing(req)
@@ -294,6 +301,27 @@ func doPair() error {
 
 		if state == "completed" {
 			cfg.RoutingToken = status.RoutingToken
+
+			// Extract approver's X25519 public key from responseJson and derive shared key
+			if status.ResponseJSON != "" {
+				var respData map[string]interface{}
+				if err := json.Unmarshal([]byte(status.ResponseJSON), &respData); err == nil {
+					if approverPubKey, ok := respData["x25519PublicKey"].(string); ok && approverPubKey != "" {
+						derivedKey, err := airlock.DeriveSharedKey(x25519kp.PrivateKey, approverPubKey)
+						if err != nil {
+							yellow.Printf("⚠ Failed to derive encryption key: %v\n", err)
+						} else {
+							cfg.EncryptionKey = derivedKey
+							green.Println("✓ X25519 ECDH key agreement completed — E2E encryption enabled")
+						}
+					}
+				}
+			}
+
+			if cfg.EncryptionKey == "" {
+				yellow.Println("⚠ No approver X25519 key received — encryption will use random test keys")
+			}
+
 			saveConfig()
 			green.Println("✓ Paired! Routing token saved.")
 			startHeartbeat()
@@ -313,35 +341,52 @@ func doPair() error {
 func doSubmit() error {
 	ensureFreshToken()
 
+	// Build plaintext payload
+	plaintext, _ := json.Marshal(map[string]string{
+		"requestLabel":  "Test approval request from Go enforcer",
+		"command":       "go test ./...",
+		"workspaceName": cfg.WorkspaceName,
+		"enforcerId":    cfg.EnforcerID,
+		"timestamp":     time.Now().Format(time.RFC3339),
+	})
+
+	// Use stored encryption key or generate a test key
+	encKey := cfg.EncryptionKey
+	if encKey == "" {
+		testKey := make([]byte, 32)
+		rand.Read(testKey)
+		encKey = airlock.ToBase64URL(testKey)
+		yellow.Println("⚠ No encryption key from pairing — using random test key")
+	}
+
+	// Canonicalize and hash
+	canonical, err := airlock.CanonicalizeJSON(string(plaintext))
+	if err != nil {
+		return fmt.Errorf("canonicalize: %w", err)
+	}
+	artifactHash := airlock.SHA256Hex(canonical)
+
+	// Encrypt with AES-256-GCM
+	ciphertext, err := airlock.AesGcmEncrypt(encKey, canonical)
+	if err != nil {
+		return fmt.Errorf("encrypt: %w", err)
+	}
+
 	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-	artifactHash := fmt.Sprintf("hash-%d", time.Now().UnixMilli())
-
-	// Fake encrypted payload
-	nonce := make([]byte, 24)
-	tag := make([]byte, 16)
-	data := make([]byte, 64)
-	rand.Read(nonce)
-	rand.Read(tag)
-	rand.Read(data)
-
 	req := airlock.ArtifactSubmitRequest{
 		EnforcerID:   cfg.EnforcerID,
 		ArtifactType: "command-approval",
 		ArtifactHash: artifactHash,
-		Ciphertext: airlock.CiphertextRef{
-			Alg:   "xchacha20-poly1305",
-			Data:  base64.StdEncoding.EncodeToString(data),
-			Nonce: base64.StdEncoding.EncodeToString(nonce),
-			Tag:   base64.StdEncoding.EncodeToString(tag),
-		},
+		Ciphertext:   *ciphertext,
 		Metadata: map[string]string{
 			"routingToken":  cfg.RoutingToken,
 			"workspaceName": cfg.WorkspaceName,
+			"requestLabel":  "Test approval request from Go enforcer",
 		},
 		RequestID: reqID,
 	}
 
-	dim.Printf("Submitting artifact %s...\n", reqID)
+	dim.Println("Submitting encrypted artifact...")
 	submittedID, err := gwClient.SubmitArtifact(req)
 	if err != nil {
 		return err
@@ -352,7 +397,7 @@ func doSubmit() error {
 		lastReqID = reqID
 	}
 
-	green.Printf("✓ Submitted: %s\n", lastReqID)
+	green.Printf("✓ Submitted: %s (AES-256-GCM encrypted)\n", lastReqID)
 
 	// Long-poll for decision
 	dim.Println("Waiting for decision...")

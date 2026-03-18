@@ -55,7 +55,7 @@ var requestId = await client.SubmitArtifactAsync(new ArtifactSubmitRequest
 {
     EnforcerId = "my-enforcer",
     ArtifactHash = "sha256-hash",
-    Ciphertext = new CiphertextRef
+    Ciphertext = new EncryptedPayload
     {
         Alg = "aes-256-gcm",
         Data = "base64-encrypted-content",
@@ -125,6 +125,16 @@ catch (AirlockGatewayException ex) when (ex.IsConflict)
 dotnet build
 dotnet test
 ```
+
+## Encryption
+
+The SDK includes `CryptoHelpers` for **X25519 ECDH key exchange** and **AES-256-GCM** encryption/decryption using [NSec.Cryptography](https://nsec.rocks/):
+
+- `GenerateX25519KeyPair()` — generates a raw 32-byte X25519 keypair (base64url encoded)
+- `DeriveSharedKey(myPrivate, peerPublic)` — derives a shared AES-256 key via ECDH + HKDF-SHA256 (info: `HARP-E2E-AES256GCM`)
+- `AesGcmEncrypt(key, plaintext)` / `AesGcmDecrypt(key, payload)` — AES-256-GCM with detached nonce and tag
+
+During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.ResponseJson`.
 
 ## Test Enforcer CLI
 

@@ -53,7 +53,7 @@ async fn test_submit_artifact() {
         .submit_artifact(ArtifactSubmitRequest {
             enforcer_id: "e1".into(),
             artifact_hash: "abc123".into(),
-            ciphertext: CiphertextRef {
+            ciphertext: EncryptedPayload {
                 alg: "aes-256-gcm".into(),
                 data: "encrypted".into(),
                 nonce: None,
@@ -85,7 +85,7 @@ async fn test_submit_artifact_generates_request_id() {
         .submit_artifact(ArtifactSubmitRequest {
             enforcer_id: "e1".into(),
             artifact_hash: "h1".into(),
-            ciphertext: CiphertextRef {
+            ciphertext: EncryptedPayload {
                 alg: "aes-256-gcm".into(),
                 data: "d".into(),
                 nonce: None,
@@ -119,7 +119,7 @@ async fn test_submit_artifact_quota_exceeded() {
         .submit_artifact(ArtifactSubmitRequest {
             enforcer_id: "e1".into(),
             artifact_hash: "h1".into(),
-            ciphertext: CiphertextRef {
+            ciphertext: EncryptedPayload {
                 alg: "aes-256-gcm".into(),
                 data: "d".into(),
                 nonce: None,
@@ -153,7 +153,7 @@ async fn test_submit_artifact_conflict() {
         .submit_artifact(ArtifactSubmitRequest {
             enforcer_id: "e1".into(),
             artifact_hash: "h1".into(),
-            ciphertext: CiphertextRef {
+            ciphertext: EncryptedPayload {
                 alg: "aes-256-gcm".into(),
                 data: "d".into(),
                 nonce: None,
@@ -305,7 +305,7 @@ fn test_decision_deliver_body_helpers() {
 
 #[test]
 fn test_ciphertext_ref_serialization() {
-    let ct = CiphertextRef {
+    let ct = EncryptedPayload {
         alg: "aes-256-gcm".into(),
         data: "enc".into(),
         nonce: None,

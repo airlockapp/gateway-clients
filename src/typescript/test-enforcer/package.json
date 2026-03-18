@@ -19,6 +19,7 @@
   "dependencies": {
     "@airlock/gateway-sdk": "file:..",
     "@inquirer/prompts": "^7.0.0",
-    "chalk": "^5.0.0"
+    "chalk": "^5.0.0",
+    "libsodium-wrappers-sumo": "^0.8.2"
   }
 }

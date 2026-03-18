@@ -1,4 +1,5 @@
 using System.Net;
+using Airlock.Gateway.Sdk.Crypto;
 using Airlock.Gateway.Sdk.Models;
 using Xunit;
 
@@ -64,7 +65,7 @@ public class AirlockGatewayClientTests
             EnforcerId = "enforcer-1",
             ArtifactType = "command-approval",
             ArtifactHash = "abc123",
-            Ciphertext = new CiphertextRef
+            Ciphertext = new EncryptedPayload
             {
                 Alg = "aes-256-gcm",
                 Data = "encrypted-data",
@@ -94,7 +95,7 @@ public class AirlockGatewayClientTests
         {
             EnforcerId = "e1",
             ArtifactHash = "h1",
-            Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+            Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
         });
 
         Assert.StartsWith("req-", requestId);
@@ -115,7 +116,7 @@ public class AirlockGatewayClientTests
             {
                 EnforcerId = "e1",
                 ArtifactHash = "h1",
-                Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+                Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
             }));
 
         Assert.Equal("no_approver", ex.ErrorCode);
@@ -137,7 +138,7 @@ public class AirlockGatewayClientTests
             {
                 EnforcerId = "e1",
                 ArtifactHash = "h1",
-                Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+                Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
             }));
 
         Assert.True(ex.IsPairingRevoked);
@@ -159,7 +160,7 @@ public class AirlockGatewayClientTests
             {
                 EnforcerId = "e1",
                 ArtifactHash = "h1",
-                Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+                Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
             }));
 
         Assert.True(ex.IsQuotaExceeded);
@@ -181,7 +182,7 @@ public class AirlockGatewayClientTests
                 EnforcerId = "e1",
                 ArtifactHash = "h2",
                 RequestId = "req-dup",
-                Ciphertext = new CiphertextRef { Alg = "aes-256-gcm", Data = "d" }
+                Ciphertext = new EncryptedPayload { Alg = "aes-256-gcm", Data = "d" }
             }));
 
         Assert.True(ex.IsConflict);

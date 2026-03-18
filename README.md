@@ -1,6 +1,6 @@
 # Airlock Integrations Gateway Client SDKs
 
-Multi-language client SDKs for the [Airlock Integrations Gateway](http://localhost:4321/docs/sdk) — the enforcer-facing API for human-in-the-loop AI agent approval.
+Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
 > Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
@@ -58,6 +58,27 @@ client = AirlockGatewayClient(
 
 The SDK sends these as `X-Client-Id` and `X-Client-Secret` HTTP headers on every request.
 
+### Dual Auth (Credentials + User Bearer Token)
+
+Third-party enforcers that need user-scoped requests (e.g. consent-aware operations)
+can authenticate with credentials **and** set a user's Bearer token after login:
+
+```python
+# 1. Create client with enforcer credentials
+client = AirlockGatewayClient("https://igw.airlocks.io",
+    client_id="your-client-id", client_secret="your-client-secret")
+
+# 2. After user logs in (Device Auth Grant), set their token
+client.set_bearer_token(access_token)
+```
+
+When both are present, the user's Bearer token takes precedence in the `Authorization`
+header, while credentials are still sent via `X-Client-Id` / `X-Client-Secret`.
+
+> **Architecture Constraint:** Third-party enforcers must communicate **only** with the
+> Integrations Gateway (`igw.airlocks.io`). The mobile app must communicate **only** with
+> the Gateway (`gw.airlocks.io`). Direct backend access is not permitted for either.
+
 ## HARP Envelope Format
 
 Artifact submission messages use the HARP Gateway Wire Envelope:
@@ -74,6 +95,28 @@ Artifact submission messages use the HARP Gateway Wire Envelope:
 ```
 
 See each SDK's README for language-specific usage examples.
+
+## Pairing & End-to-End Encryption
+
+During workspace pairing, the enforcer generates an **X25519 keypair** and sends the public key in the `PairingInitiateRequest`. When pairing completes, the gateway returns the approver's X25519 public key in the `responseJson` field of the `PairingStatusResponse`. The SDK then:
+
+1. **ECDH key agreement** — computes the shared secret via X25519 scalar multiplication
+2. **HKDF-SHA256** — derives a 32-byte AES-256 key using info string `HARP-E2E-AES256GCM`
+3. **Saves** the derived key as `encryptionKey` in the enforcer configuration
+
+This key is used for AES-256-GCM artifact encryption and decision decryption.
+
+### Crypto Dependencies
+
+| SDK | Library | X25519 | HKDF |
+|-----|---------|--------|------|
+| .NET | `NSec.Cryptography` | `KeyAgreementAlgorithm.X25519` | `HkdfSha256.DeriveBytes` |
+| Go | `crypto/ecdh` (stdlib) | `ecdh.X25519()` | `golang.org/x/crypto/hkdf` |
+| Python | `cryptography` | `X25519PrivateKey` | `HKDF(SHA256)` |
+| Rust | `x25519_dalek` | `StaticSecret::diffie_hellman` | `hkdf::Hkdf<Sha256>` |
+| TypeScript | `libsodium-wrappers-sumo` | `crypto_scalarmult` | `crypto.hkdfSync` |
+
+> **Note:** All implementations follow the patterns in [harp-samples](https://github.com/AirlockHQ/harp-samples).
 
 ## Building & Packaging
 
@@ -125,7 +168,7 @@ See each SDK's README for detailed prerequisites and setup instructions.
 ### SDK Enhancements (v2)
 
 - **WebSocket / SSE real-time connections** — enforcer live streams, presence events
-- **E2E encryption helpers** — key exchange, artifact encrypt/decrypt, signature verification
+- ~~**E2E encryption helpers**~~ ✅ Delivered — X25519 ECDH key exchange, HKDF-SHA256, AES-256-GCM encrypt/decrypt
 - **Retry / backoff policies** — built-in exponential backoff for `WaitForDecision` polling loops
 
 ### Quality & Documentation

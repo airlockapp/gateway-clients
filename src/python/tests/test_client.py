@@ -10,7 +10,7 @@ from airlock_gateway.client import AirlockGatewayClient
 from airlock_gateway.exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
-    CiphertextRef,
+    EncryptedPayload,
     PairingInitiateRequest,
     PresenceHeartbeatRequest,
 )
@@ -51,7 +51,7 @@ async def test_submit_artifact_posts_envelope(client, mock_api):
         ArtifactSubmitRequest(
             enforcer_id="enforcer-1",
             artifact_hash="abc123",
-            ciphertext=CiphertextRef(alg="aes-256-gcm", data="encrypted"),
+            ciphertext=EncryptedPayload(alg="aes-256-gcm", data="encrypted"),
             request_id="req-test123",
         )
     )
@@ -71,7 +71,7 @@ async def test_submit_artifact_generates_request_id(client, mock_api):
         ArtifactSubmitRequest(
             enforcer_id="e1",
             artifact_hash="h1",
-            ciphertext=CiphertextRef(alg="aes-256-gcm", data="d"),
+            ciphertext=EncryptedPayload(alg="aes-256-gcm", data="d"),
         )
     )
 
@@ -93,7 +93,7 @@ async def test_submit_artifact_raises_on_no_approver(client, mock_api):
             ArtifactSubmitRequest(
                 enforcer_id="e1",
                 artifact_hash="h1",
-                ciphertext=CiphertextRef(alg="aes-256-gcm", data="d"),
+                ciphertext=EncryptedPayload(alg="aes-256-gcm", data="d"),
             )
         )
 
@@ -116,7 +116,7 @@ async def test_submit_artifact_raises_on_quota_exceeded(client, mock_api):
             ArtifactSubmitRequest(
                 enforcer_id="e1",
                 artifact_hash="h1",
-                ciphertext=CiphertextRef(alg="aes-256-gcm", data="d"),
+                ciphertext=EncryptedPayload(alg="aes-256-gcm", data="d"),
             )
         )
 
@@ -138,7 +138,7 @@ async def test_submit_artifact_raises_on_conflict(client, mock_api):
             ArtifactSubmitRequest(
                 enforcer_id="e1",
                 artifact_hash="h1",
-                ciphertext=CiphertextRef(alg="aes-256-gcm", data="d"),
+                ciphertext=EncryptedPayload(alg="aes-256-gcm", data="d"),
             )
         )
 

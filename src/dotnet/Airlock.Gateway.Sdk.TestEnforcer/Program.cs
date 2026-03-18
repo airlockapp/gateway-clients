@@ -21,6 +21,7 @@ class EnforcerConfig
     public string EnforcerId { get; set; } = "enf-test";
     public string WorkspaceName { get; set; } = "default";
     public string RoutingToken { get; set; } = "";
+    public string EncryptionKey { get; set; } = "";
     public string AccessToken { get; set; } = "";
     public string RefreshToken { get; set; } = "";
     public DateTimeOffset TokenExpiresAt { get; set; }
@@ -245,12 +246,16 @@ class Program
                 _config.DeviceId = $"dev-{Environment.MachineName.ToLowerInvariant()}";
         }
 
+        // Generate X25519 keypair for ECDH key agreement
+        var x25519KeyPair = Airlock.Gateway.Sdk.Crypto.CryptoHelpers.GenerateX25519KeyPair();
+
         var req = new PairingInitiateRequest
         {
             DeviceId = _config.DeviceId,
             EnforcerId = _config.EnforcerId,
             EnforcerLabel = "Test Enforcer CLI",
             WorkspaceName = _config.WorkspaceName,
+            X25519PublicKey = x25519KeyPair.publicKeyBase64Url,
         };
 
         var res = await _gwClient!.InitiatePairingAsync(req);
@@ -263,7 +268,7 @@ class Program
             .BorderColor(Color.Yellow));
 
         // Poll for completion
-        var paired = await AnsiConsole.Status()
+        var completedStatus = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(Style.Parse("yellow"))
             .StartAsync("Waiting for pairing approval...", async ctx =>
@@ -278,7 +283,7 @@ class Program
 
                     if (state is "completed")
                     {
-                        return status.RoutingToken;
+                        return status;
                     }
                     if (state is "revoked" or "expired")
                     {
@@ -289,9 +294,38 @@ class Program
                 return null;
             });
 
-        if (paired is not null)
+        if (completedStatus is not null)
         {
-            _config.RoutingToken = paired;
+            _config.RoutingToken = completedStatus.RoutingToken ?? "";
+
+            // Extract approver's X25519 public key from responseJson and derive shared key
+            if (!string.IsNullOrEmpty(completedStatus.ResponseJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(completedStatus.ResponseJson);
+                    if (doc.RootElement.TryGetProperty("x25519PublicKey", out var approverKeyProp))
+                    {
+                        var approverPubKey = approverKeyProp.GetString();
+                        if (!string.IsNullOrEmpty(approverPubKey))
+                        {
+                            _config.EncryptionKey = Airlock.Gateway.Sdk.Crypto.CryptoHelpers.DeriveSharedKey(
+                                x25519KeyPair.privateKeyBase64Url, approverPubKey);
+                            AnsiConsole.MarkupLine("[green]:check_mark: X25519 ECDH key agreement completed — E2E encryption enabled[/]");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AnsiConsole.MarkupLine($"[yellow]⚠ Failed to derive encryption key: {Markup.Escape(ex.Message)}[/]");
+                }
+            }
+
+            if (string.IsNullOrEmpty(_config.EncryptionKey))
+            {
+                AnsiConsole.MarkupLine("[yellow]⚠ No approver X25519 key received — encryption will use random test keys[/]");
+            }
+
             await SaveConfig();
 
             AnsiConsole.MarkupLine($"[green]:check_mark: Paired! Routing token saved.[/]");
@@ -309,39 +343,46 @@ class Program
         // Ensure fresh token
         await EnsureFreshToken();
 
-        var requestId = $"req-{Guid.NewGuid():N}";
-        var artifactHash = $"hash-{Guid.NewGuid().ToString("N")[..12]}";
+        // Build a plaintext payload (this is what gets encrypted)
+        var plaintext = JsonSerializer.Serialize(new
+        {
+            requestLabel = $"Test approval request from .NET enforcer",
+            command = "dotnet test --filter Category=Integration",
+            workspaceName = _config.WorkspaceName,
+            enforcerId = _config.EnforcerId,
+            timestamp = DateTimeOffset.UtcNow.ToString("O")
+        });
 
-        // Fake encrypted payload (xchacha20-poly1305)
-        var fakeNonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24));
-        var fakeTag = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
-        var fakeData = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        // Use stored encryption key or a test key
+        var encKey = _config.EncryptionKey;
+        if (string.IsNullOrEmpty(encKey))
+        {
+            // Generate a test key if not paired yet
+            encKey = Airlock.Gateway.Sdk.Crypto.CryptoHelpers.ToBase64Url(
+                RandomNumberGenerator.GetBytes(32));
+            AnsiConsole.MarkupLine("[yellow]⚠ No encryption key from pairing — using random test key[/]");
+        }
 
-        var req = new ArtifactSubmitRequest
+        var req = new EncryptedArtifactRequest
         {
             EnforcerId = _config.EnforcerId,
             ArtifactType = "command-approval",
-            ArtifactHash = artifactHash,
-            Ciphertext = new CiphertextRef
-            {
-                Alg = "xchacha20-poly1305",
-                Data = fakeData,
-                Nonce = fakeNonce,
-                Tag = fakeTag,
-            },
+            PlaintextPayload = plaintext,
+            EncryptionKeyBase64Url = encKey,
             Metadata = new Dictionary<string, string>
             {
                 ["routingToken"] = _config.RoutingToken,
                 ["workspaceName"] = _config.WorkspaceName,
+                ["requestLabel"] = "Test approval request from .NET enforcer",
             },
         };
 
-        AnsiConsole.MarkupLine($"[dim]Submitting artifact {Markup.Escape(requestId)}...[/]");
+        AnsiConsole.MarkupLine($"[dim]Submitting encrypted artifact...[/]");
 
-        var submittedId = await _gwClient!.SubmitArtifactAsync(req);
-        _lastRequestId = submittedId ?? requestId;
+        var submittedId = await _gwClient!.EncryptAndSubmitArtifactAsync(req);
+        _lastRequestId = submittedId;
 
-        AnsiConsole.MarkupLine($"[green]:check_mark: Submitted:[/] {Markup.Escape(_lastRequestId)}");
+        AnsiConsole.MarkupLine($"[green]:check_mark: Submitted:[/] {Markup.Escape(_lastRequestId)} [dim](AES-256-GCM encrypted)[/]");
 
         // Long-poll for decision
         var decision = await AnsiConsole.Status()

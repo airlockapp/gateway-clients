@@ -132,6 +132,16 @@ npm run build
 npm test
 ```
 
+## Encryption
+
+The test enforcer uses **X25519 ECDH key exchange** via [libsodium-wrappers-sumo](https://github.com/nickovs/libsodium-wrappers-sumo):
+
+- `sodium.crypto_box_keypair()` — generates an X25519 keypair
+- `sodium.crypto_scalarmult(privateKey, peerPublicKey)` — X25519 ECDH scalar multiplication
+- `crypto.hkdfSync('sha256', sharedSecret, ...)` — HKDF-SHA256 key derivation (info: `HARP-E2E-AES256GCM`)
+
+During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.responseJson`.
+
 ## Test Enforcer CLI
 
 A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
