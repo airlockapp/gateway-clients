@@ -1,12 +1,47 @@
-# airlock-gateway-sdk-go
+# airlock-gateway (Go)
 
 A Go client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
+**Module:** `github.com/airlockapp/gateway-clients/src/go/airlock` — **docs:** [pkg.go.dev](https://pkg.go.dev/github.com/airlockapp/gateway-clients/src/go/airlock)
+
 ```bash
 go get github.com/airlockapp/gateway-clients/src/go/airlock
 ```
+
+## API reference
+
+### `airlock.Client` (Integrations Gateway)
+
+| HTTP | Method |
+|------|--------|
+| `GET /echo` | `Echo` |
+| `POST /v1/artifacts` | `SubmitArtifact` |
+| `GET /v1/exchanges/{requestId}` | `GetExchangeStatus` |
+| `GET /v1/exchanges/{requestId}/wait` | `WaitForDecision` |
+| `POST /v1/exchanges/{requestId}/withdraw` | `WithdrawExchange` |
+| `POST /v1/pairing/initiate` | `InitiatePairing` |
+| `GET /v1/pairing/{nonce}/status` | `GetPairingStatus` |
+| `POST /v1/pairing/revoke` | `RevokePairing` |
+| `POST /v1/pairing/claim` | `ClaimPairing` |
+| `POST /v1/presence/heartbeat` | `SendHeartbeat` |
+| `GET /v1/policy/dnd/effective` | `GetEffectiveDndPolicies` |
+| `GET /v1/consent/status` | `CheckConsent` |
+
+**Helper:** `EncryptAndSubmitArtifact` — canonicalizes, encrypts, and calls `POST /v1/artifacts`. **Client configuration:** `NewClient`, `NewClientWithCredentials`, `SetBearerToken`, `SetPat`, `WithHTTPClient`.
+
+### `airlock.AirlockAuthClient` (IdP / OAuth)
+
+| Purpose | Method |
+|---------|--------|
+| OIDC discovery | `Discover` |
+| Device code login | `Login` |
+| Auth code + PKCE (local callback) | `LoginWithAuthCode` |
+| Auth code + PKCE (manual redirect) | `GetAuthorizationURL`, `ExchangeCode` |
+| Tokens | `RefreshToken`, `GetAccessToken` |
+| Session helpers | `CurrentAccessToken`, `IsLoggedIn`, `IsTokenExpired`, `RestoreTokens`, `GetTokenState` |
+| Sign out | `Logout` |
 
 ## Quick Start
 

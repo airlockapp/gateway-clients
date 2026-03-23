@@ -18,6 +18,13 @@ Desktop.ini
 # Build output
 # ==============================
 dist/
+**/bin/
+**/obj/
+**/target/
+node_modules/
+__pycache__/
+*.egg-info/
+.pytest_cache/
 
 # ==============================
 # Misc

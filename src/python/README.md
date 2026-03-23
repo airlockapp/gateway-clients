@@ -4,9 +4,43 @@ An async Python client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
+**PyPI:** [airlock-gateway](https://pypi.org/project/airlock-gateway/)
+
 ```bash
 pip install airlock-gateway
 ```
+
+## API reference
+
+### `AirlockGatewayClient` (Integrations Gateway)
+
+| HTTP | Method |
+|------|--------|
+| `GET /echo` | `echo` |
+| `POST /v1/artifacts` | `submit_artifact` |
+| `GET /v1/exchanges/{requestId}` | `get_exchange_status` |
+| `GET /v1/exchanges/{requestId}/wait` | `wait_for_decision` |
+| `POST /v1/exchanges/{requestId}/withdraw` | `withdraw_exchange` |
+| `POST /v1/pairing/initiate` | `initiate_pairing` |
+| `GET /v1/pairing/{nonce}/status` | `get_pairing_status` |
+| `POST /v1/pairing/revoke` | `revoke_pairing` |
+| `POST /v1/pairing/claim` | `claim_pairing` |
+| `POST /v1/presence/heartbeat` | `send_heartbeat` |
+| `GET /v1/policy/dnd/effective` | `get_effective_dnd_policies` |
+| `GET /v1/consent/status` | `check_consent` |
+
+**Helper:** `encrypt_and_submit_artifact` — canonicalizes, encrypts, and submits via `POST /v1/artifacts`. Lower-level crypto helpers live in `airlock_gateway.crypto_helpers`.
+
+### `AirlockAuthClient` (IdP / OAuth)
+
+| Purpose | Method |
+|---------|--------|
+| OIDC discovery | `discover` |
+| Device code login | `login` |
+| Auth code + PKCE (local callback) | `login_with_auth_code` |
+| Auth code + PKCE (manual redirect) | `get_authorization_url`, `exchange_code` |
+| Tokens | `refresh_token`, `get_access_token` |
+| Sign out | `logout` |
 
 ## Quick Start
 

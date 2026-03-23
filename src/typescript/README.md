@@ -1,19 +1,53 @@
-# @airlock/gateway-sdk (TypeScript)
+# @airlockapp/gateway-sdk (TypeScript)
 
 A zero-dependency TypeScript client SDK for the Airlock Integrations Gateway API. Uses the native `fetch` API — works in Node.js 18+ and modern browsers.
 
 ## Installation
 
+**npm:** [@airlockapp/gateway-sdk](https://www.npmjs.com/package/@airlockapp/gateway-sdk)
+
 ```bash
-npm install @airlock/gateway-sdk
+npm install @airlockapp/gateway-sdk
 ```
+
+## API reference
+
+### `AirlockGatewayClient` (Integrations Gateway)
+
+| HTTP | Method |
+|------|--------|
+| `GET /echo` | `echo` |
+| `POST /v1/artifacts` | `submitArtifact` |
+| `GET /v1/exchanges/{requestId}` | `getExchangeStatus` |
+| `GET /v1/exchanges/{requestId}/wait` | `waitForDecision` |
+| `POST /v1/exchanges/{requestId}/withdraw` | `withdrawExchange` |
+| `POST /v1/pairing/initiate` | `initiatePairing` |
+| `GET /v1/pairing/{nonce}/status` | `getPairingStatus` |
+| `POST /v1/pairing/revoke` | `revokePairing` |
+| `POST /v1/pairing/claim` | `claimPairing` |
+| `POST /v1/presence/heartbeat` | `sendHeartbeat` |
+| `GET /v1/policy/dnd/effective` | `getEffectiveDndPolicies` |
+| `GET /v1/consent/status` | `checkConsent` |
+
+**Helper:** `encryptAndSubmitArtifact` — builds the request and calls `POST /v1/artifacts`.
+
+### `AirlockAuthClient` (IdP / OAuth)
+
+| Purpose | Method |
+|---------|--------|
+| OIDC discovery | `discover` |
+| Device code login | `login` |
+| Auth code + PKCE (local callback) | `loginWithAuthCode` |
+| Auth code + PKCE (manual redirect) | `getAuthorizationUrl`, `exchangeCode` |
+| Tokens | `refreshTokenAsync`, `getAccessToken` |
+| Sign out | `logout` |
 
 ## Quick Start
 
 ### With Bearer Token
 
 ```typescript
-import { AirlockGatewayClient } from "@airlock/gateway-sdk";
+import { AirlockGatewayClient } from "@airlockapp/gateway-sdk";
 
 const client = new AirlockGatewayClient({
     baseUrl: "https://igw.airlocks.io",
@@ -101,7 +135,7 @@ const claim = await client.claimPairing({
 Enforcer apps must verify user consent before submitting artifacts:
 
 ```typescript
-import { AirlockGatewayError } from "@airlock/gateway-sdk";
+import { AirlockGatewayError } from "@airlockapp/gateway-sdk";
 
 try {
     const status = await client.checkConsent();
@@ -182,7 +216,7 @@ if (decision?.body?.decision === "approve") {
 All errors throw `AirlockGatewayError` with helper getters:
 
 ```typescript
-import { AirlockGatewayError } from "@airlock/gateway-sdk";
+import { AirlockGatewayError } from "@airlockapp/gateway-sdk";
 
 try {
     await client.submitArtifact(request);

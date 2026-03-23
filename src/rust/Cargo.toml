@@ -1,8 +1,8 @@
-[package]
+﻿[package]
 name = "airlock-gateway"
 version = "0.1.0"
 edition = "2021"
-description = "Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence."
+description = "Client SDK for the Airlock Gateway â€” submit artifacts, poll for decisions, manage pairing and presence."
 license = "MIT"
 keywords = ["airlock", "gateway", "sdk", "harp", "approval"]
 

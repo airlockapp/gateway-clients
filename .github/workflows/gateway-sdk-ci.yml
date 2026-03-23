@@ -4,13 +4,16 @@ on:
   push:
     paths:
       - 'src/**'
-      - 'scripts/**'
+      - '.github/workflows/**'
     branches: [main]
     tags:
       - 'v*'
   pull_request:
     paths:
       - 'src/**'
+      - 'README.md'
+      - 'DEVELOPER_GUIDE.md'
+      - '.github/workflows/**'
 
 env:
   SDK_ROOT: src
@@ -36,7 +39,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          dotnet pack Airlock.Gateway.Sdk/Airlock.Gateway.Sdk.csproj -c Release /p:Version=$VERSION -o dist
+          dotnet pack Airlock.Gateway.Sdk/Airlock.Gateway.Sdk.csproj -c Release /p:Version=$VERSION /p:PackageOutputPath=dist
       - name: Push to NuGet
         if: startsWith(github.ref, 'refs/tags/v')
         run: dotnet nuget push dist/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

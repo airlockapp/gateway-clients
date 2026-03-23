@@ -4,12 +4,49 @@ An async Rust client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
+**crates.io:** [airlock-gateway](https://crates.io/crates/airlock-gateway)
+
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 airlock-gateway = "0.1"
 ```
+
+## API reference
+
+### `AirlockGatewayClient` (Integrations Gateway)
+
+| HTTP | Method |
+|------|--------|
+| `GET /echo` | `echo` |
+| `POST /v1/artifacts` | `submit_artifact` |
+| `GET /v1/exchanges/{requestId}` | `get_exchange_status` |
+| `GET /v1/exchanges/{requestId}/wait` | `wait_for_decision` |
+| `POST /v1/exchanges/{requestId}/withdraw` | `withdraw_exchange` |
+| `POST /v1/pairing/initiate` | `initiate_pairing` |
+| `GET /v1/pairing/{nonce}/status` | `get_pairing_status` |
+| `POST /v1/pairing/revoke` | `revoke_pairing` |
+| `POST /v1/pairing/claim` | `claim_pairing` |
+| `POST /v1/presence/heartbeat` | `send_heartbeat` |
+| `GET /v1/policy/dnd/effective` | `get_effective_dnd_policies` |
+| `GET /v1/consent/status` | `check_consent` |
+
+**Helper:** `encrypt_and_submit_artifact` — canonicalizes, encrypts, and calls `POST /v1/artifacts`. **Constructors:** `AirlockGatewayClient::new`, `AirlockGatewayClient::with_credentials`; **auth setters:** `set_bearer_token`, `set_pat`.
+
+### `AirlockAuthClient` (IdP / OAuth)
+
+| Purpose | Method |
+|---------|--------|
+| OIDC discovery | `discover` |
+| Device code login | `login` |
+| Auth code + PKCE (local callback) | `login_with_auth_code` |
+| Auth code + PKCE (manual redirect) | `get_authorization_url`, `exchange_code` |
+| Tokens | `refresh_token`, `get_access_token` |
+| Session helpers | `restore_tokens`, `token_state`, `is_logged_in`, `is_token_expired` |
+| Sign out | `logout` |
+
+Low-level verification helpers (e.g. Ed25519) live in the `crypto` module.
 
 ## Quick Start
 
@@ -202,13 +239,14 @@ A fully interactive TUI application that demonstrates the complete enforcer life
 ### Run
 
 ```bash
-# From a clone of airlock-gateway-clients (repository root)
+# From a clone of https://github.com/airlockapp/gateway-clients (repository root)
 cd src/rust
 
 cargo run --bin test_enforcer
 ```
 
 On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-rust.json` and restored on subsequent runs.
+
 
 ## Requirements
 

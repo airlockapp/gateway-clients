@@ -4,9 +4,45 @@ A .NET 8+ client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
+**NuGet:** [Airlock.Gateway.Sdk](https://www.nuget.org/packages/Airlock.Gateway.Sdk)
+
 ```bash
 dotnet add package Airlock.Gateway.Sdk
 ```
+
+## API reference
+
+### `AirlockGatewayClient` (Integrations Gateway)
+
+| HTTP | `AirlockGatewayClient` method |
+|------|-------------------------------|
+| `GET /echo` | `EchoAsync` |
+| `POST /v1/artifacts` | `SubmitArtifactAsync` |
+| `GET /v1/exchanges/{requestId}` | `GetExchangeStatusAsync` |
+| `GET /v1/exchanges/{requestId}/wait` | `WaitForDecisionAsync` |
+| `POST /v1/exchanges/{requestId}/withdraw` | `WithdrawExchangeAsync` |
+| `POST /v1/pairing/initiate` | `InitiatePairingAsync` |
+| `GET /v1/pairing/{nonce}/status` | `GetPairingStatusAsync` |
+| `POST /v1/pairing/revoke` | `RevokePairingAsync` |
+| `POST /v1/pairing/claim` | `ClaimPairingAsync` |
+| `POST /v1/presence/heartbeat` | `SendHeartbeatAsync` |
+| `GET /v1/policy/dnd/effective` | `GetEffectiveDndPoliciesAsync` |
+| `GET /v1/consent/status` | `CheckConsentAsync` |
+
+**Helpers (not extra HTTP):** `EncryptAndSubmitArtifactAsync` (builds the HARP envelope and calls `POST /v1/artifacts`), `VerifyDecision` (local Ed25519 / binding checks on a decision envelope).
+
+### `AirlockAuthClient` (IdP / OAuth — Keycloak)
+
+Used for Device Authorization Grant and Auth Code + PKCE against your IdP (after you obtain `token_endpoint` etc., typically via gateway discovery in app code).
+
+| Purpose | Method |
+|---------|--------|
+| Load OIDC discovery | `DiscoverAsync` |
+| Device code login | `LoginAsync` |
+| Auth code + PKCE (local callback) | `LoginWithAuthCodeAsync` |
+| Auth code + PKCE (manual redirect) | `GetAuthorizationUrlAsync`, `ExchangeCodeAsync` |
+| Refresh / access token | `RefreshTokenAsync`, `GetAccessTokenAsync` |
+| Sign out (revoke) | `LogoutAsync` |
 
 ## Quick Start
 

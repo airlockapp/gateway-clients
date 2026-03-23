@@ -64,7 +64,7 @@ namespace Airlock.Gateway.Sdk
 
         // ── Consent ─────────────────────────────────────────────────
 
-        /// <summary>POST /v1/consent/status — Check if the user has consented to this enforcer app.</summary>
+        /// <summary>GET /v1/consent/status — Check if the user has consented to this enforcer app.</summary>
         /// <returns>Consent status string ("approved"). Throws AirlockGatewayException with error_code
         /// "app_consent_required" or "app_consent_pending" if consent is not granted.</returns>
         Task<string> CheckConsentAsync(CancellationToken ct = default);

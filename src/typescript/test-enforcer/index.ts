@@ -9,8 +9,8 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { select, input, password, confirm, Separator } from '@inquirer/prompts';
 import chalk from 'chalk';
-import { AirlockGatewayClient, AirlockAuthClient, AirlockGatewayError } from '@airlock/gateway-sdk';
-import type { AirlockAuthOptions, DeviceCodeInfo } from '@airlock/gateway-sdk';
+import { AirlockGatewayClient, AirlockAuthClient, AirlockGatewayError } from '@airlockapp/gateway-sdk';
+import type { AirlockAuthOptions, DeviceCodeInfo } from '@airlockapp/gateway-sdk';
 
 // Allow self-signed certificates in development
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';

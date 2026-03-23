@@ -2,7 +2,9 @@
 
 Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
-This repository is the **standalone home** for these SDKs. The same sources are also kept under `gateway_sdk/` in the main [Airlock](https://github.com/airlockapp/airlock) monorepo for product development; changes are periodically synced here.
+This repository (**[airlockapp/gateway-clients](https://github.com/airlockapp/gateway-clients)**) is the **standalone** home for these SDKs. The same sources are also maintained under `gateway_sdk/` in the main Airlock product repository for integrated development; changes are synced from there into this repo.
+
+Published names, install commands, and registry links are summarized on **[Gateway Client SDKs](https://airlockapp.io/docs/sdk/)** (airlockapp.io).
 
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
 > Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
@@ -11,15 +13,11 @@ This repository is the **standalone home** for these SDKs. The same sources are 
 
 | Language | Path | Package |
 |----------|------|---------|
-| .NET C# | [`src/dotnet/`](src/dotnet/) | `Airlock.Gateway.Sdk` (NuGet) |
-| Python | [`src/python/`](src/python/) | `airlock-gateway` (PyPI) |
-| TypeScript | [`src/typescript/`](src/typescript/) | `@airlock/gateway-sdk` (NPM) |
-| Go | [`src/go/`](src/go/) | `github.com/AirlockHQ/airlock-gateway-sdk-go` |
-| Rust | [`src/rust/`](src/rust/) | `airlock-gateway-sdk` (crates.io) |
-
-## Developer Guide
-
-For enforcer configuration, end-to-end encryption, workspace pairing, and integration patterns, see the [Airlock Enforcer Developer Guide](DEVELOPER_GUIDE.md).
+| .NET C# | [`src/dotnet/`](src/dotnet/) | [`Airlock.Gateway.Sdk`](https://www.nuget.org/packages/Airlock.Gateway.Sdk) (NuGet) |
+| Python | [`src/python/`](src/python/) | [`airlock-gateway`](https://pypi.org/project/airlock-gateway/) (PyPI) |
+| TypeScript | [`src/typescript/`](src/typescript/) | [`@airlockapp/gateway-sdk`](https://www.npmjs.com/package/@airlockapp/gateway-sdk) (npm) |
+| Go | [`src/go/`](src/go/) | [`airlock-gateway`](https://pkg.go.dev/github.com/airlockapp/gateway-clients/src/go/airlock) — `go get github.com/airlockapp/gateway-clients/src/go/airlock` |
+| Rust | [`src/rust/`](src/rust/) | [`airlock-gateway`](https://crates.io/crates/airlock-gateway) (crates.io) |
 
 ## Gateway API Surface
 
@@ -39,6 +37,7 @@ All SDKs cover the **enforcer-side** endpoints:
 | `POST /v1/pairing/claim` | Enforcer claims a pre-generated code |
 | `POST /v1/presence/heartbeat` | Send a presence heartbeat |
 | `GET /v1/policy/dnd/effective` | Fetch effective DND policies |
+| `GET /v1/consent/status` | Check user consent for the enforcer app |
 
 ## Authentication
 
@@ -141,36 +140,21 @@ This key is used for AES-256-GCM artifact encryption and decision decryption.
 | Rust | `x25519_dalek` | `StaticSecret::diffie_hellman` | `hkdf::Hkdf<Sha256>` |
 | TypeScript | `libsodium-wrappers-sumo` | `crypto_scalarmult` | `crypto.hkdfSync` |
 
-> **Note:** All implementations follow the patterns in [harp-samples](https://github.com/AirlockHQ/harp-samples).
+> **Note:** All implementations follow the patterns in [harp-protocol/samples](https://github.com/harp-protocol/samples).
 
-## Building & Packaging
+## Building & CI/CD
 
-A unified PowerShell script handles building, testing, packaging, and publishing all SDKs:
+**Local builds:** Use each language’s tooling from `src/{dotnet,python,typescript,go,rust}/` — see the per-SDK READMEs (build, test, and optional pack commands).
 
-```powershell
-# Build and package all SDKs (run from repository root)
-.\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0
+**CI/CD:** Automated build, test, and release publishing are handled by **GitHub Actions** (workflows under [`.github/workflows`](.github/workflows) in this repository).
 
-# Build a single SDK
-.\scripts\package-sdks.ps1 -Sdk dotnet -Version 0.1.0
-
-# Build and push to registries
-.\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0 -Push `
-    -NuGetApiKey "your-key" `
-    -PyPiToken "your-token" `
-    -NpmToken "your-token" `
-    -CratesToken "your-token"
-```
-
-Output packages are placed in `dist/{language}/`.
-
-| SDK | Registry | Command |
-|-----|----------|---------|
-| .NET | nuget.org | `dotnet nuget push` |
-| Python | PyPI | `twine upload` |
-| TypeScript | NPM | `npm publish` |
-| Go | pkg.go.dev | `git tag` + `git push` |
-| Rust | crates.io | `cargo publish` |
+| SDK | Typical local build | Registry (releases) |
+|-----|---------------------|---------------------|
+| .NET | `dotnet build` / `dotnet test` on `Airlock.Gateway.Sdk` | nuget.org |
+| Python | `pip install -e ".[dev]"` / `pytest` | PyPI |
+| TypeScript | `npm install` / `npm run build` / `npm test` | npm |
+| Go | `go test ./airlock/...` | pkg.go.dev (module tags) |
+| Rust | `cargo build` / `cargo test` | crates.io |
 
 ## Test Enforcer CLIs
 
@@ -201,7 +185,7 @@ See each SDK's README for detailed prerequisites and setup instructions.
 ### Quality & Documentation
 
 - **API reference docs** — auto-generated per language (DocFX, Sphinx, TypeDoc, godoc, rustdoc)
-- **Integration tests** — test suites running against a live gateway (via .NET Aspire test infrastructure)
+- **Integration tests** — test suites running against a live gateway
 - **CI/CD pipeline** — GitHub Actions workflow for automated build, test, and publish on tag
 
 ### Usage Examples

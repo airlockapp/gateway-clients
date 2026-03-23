@@ -2,8 +2,6 @@
 
 > **Audience:** Developers who want to build third-party enforcer applications that integrate with the Airlock security gateway for human-in-the-loop AI agent approval.
 
-> **Where this document lives:** It ships with the SDK sources in the **airlock-gateway-clients** repository. The same guide is mirrored under `gateway_sdk/DEVELOPER_GUIDE.md` in the main Airlock application monorepo.
-
 ---
 
 ## Table of Contents
@@ -168,15 +166,17 @@ When both are present:
 
 ## Step 3 — Integrate Using the Gateway SDK
 
+Authoritative published package names and registry links: **[Gateway Client SDKs](https://airlockapp.io/docs/sdk/)** (airlockapp.io).
+
 ### Install the SDK
 
 | Language | Install Command | Package |
 |----------|----------------|---------|
-| .NET C# | `dotnet add package Airlock.Gateway.Sdk` | [NuGet](https://nuget.org) |
-| Python | `pip install airlock-gateway` | [PyPI](https://pypi.org) |
-| TypeScript | `npm install @airlock/gateway-sdk` | [NPM](https://npmjs.com) |
-| Go | `go get github.com/AirlockHQ/airlock-gateway-sdk-go` | [Go Modules](https://pkg.go.dev) |
-| Rust | `cargo add airlock-gateway-sdk` | [crates.io](https://crates.io) |
+| .NET C# | `dotnet add package Airlock.Gateway.Sdk` | [NuGet](https://www.nuget.org/packages/Airlock.Gateway.Sdk) |
+| Python | `pip install airlock-gateway` | [PyPI](https://pypi.org/project/airlock-gateway/) |
+| TypeScript | `npm install @airlockapp/gateway-sdk` | [npm](https://www.npmjs.com/package/@airlockapp/gateway-sdk) |
+| Go | `go get github.com/airlockapp/gateway-clients/src/go/airlock` | [pkg.go.dev](https://pkg.go.dev/github.com/airlockapp/gateway-clients/src/go/airlock) |
+| Rust | `cargo add airlock-gateway` | [crates.io](https://crates.io/crates/airlock-gateway) |
 
 ### Initialize the Client
 
@@ -204,19 +204,23 @@ var client = new AirlockGatewayClient(httpClient);
 
 **TypeScript:**
 ```typescript
-import { AirlockGatewayClient } from '@airlock/gateway-sdk';
+import { AirlockGatewayClient } from '@airlockapp/gateway-sdk';
 
-const client = new AirlockGatewayClient(
-  'https://igw.airlocks.io',
-  { clientId: 'your-client-id', clientSecret: 'your-client-secret' }
-);
+const client = new AirlockGatewayClient({
+  baseUrl: 'https://igw.airlocks.io',
+  clientId: 'your-client-id',
+  clientSecret: 'your-client-secret',
+});
 ```
 
 **Go:**
 ```go
-client := airlock.NewClient(
+import airlock "github.com/airlockapp/gateway-clients/src/go/airlock"
+
+client := airlock.NewClientWithCredentials(
     "https://igw.airlocks.io",
-    airlock.WithClientCredentials("your-client-id", "your-client-secret"),
+    "your-client-id",
+    "your-client-secret",
 )
 ```
 
@@ -297,7 +301,7 @@ client.set_bearer_token(access_token)
 Before an enforcer can interact with a user's workspaces, the user must **consent** to your app's access. After the user signs in, check consent status:
 
 ```
-GET /v1/consents/check
+GET /v1/consent/status
 ```
 
 Possible outcomes:
@@ -522,7 +526,7 @@ All test enforcers implement the same set of scenarios:
 - **Sign out** — revokes the refresh token and clears the local session.
 
 #### ✅ Consent
-- **Consent check** — calls `GET /v1/consents/check` after sign-in to verify the user has authorized the app.
+- **Consent check** — calls `GET /v1/consent/status` after sign-in to verify the user has authorized the app.
 - **Consent flow handling** — gracefully handles `app_consent_required` (first time) and `app_consent_pending` (awaiting approval) responses with user-friendly messages.
 
 #### 🔗 Workspace Pairing
@@ -567,7 +571,7 @@ dotnet run
 ```bash
 cd src/typescript/test-enforcer
 npm install
-npx ts-node index.ts
+npm start
 ```
 
 ### Running the Go Test Enforcer
@@ -585,18 +589,11 @@ pip install -e .
 python test_enforcer.py
 ```
 
-### Running the Rust Test Enforcer
-
-```bash
-cd src/rust
-cargo run --bin test_enforcer
-```
-
 ---
 
 ## Gateway SDK Reference
 
-For detailed API documentation per language, see:
+For detailed API documentation per language, see the READMEs below. Published install commands and links: **[Gateway Client SDKs](https://airlockapp.io/docs/sdk/)**.
 
 | Language | SDK Source | README |
 |----------|-----------|--------|
@@ -623,4 +620,4 @@ For detailed API documentation per language, see:
 | `POST /v1/pairing/claim` | Pairing | Enforcer claims a pre-generated code |
 | `POST /v1/presence/heartbeat` | Presence | Send an enforcer heartbeat |
 | `GET /v1/policy/dnd/effective` | Policy | Fetch effective DND policies |
-| `GET /v1/consents/check` | Consent | Check user consent for your app |
+| `GET /v1/consent/status` | Consent | Check user consent for your app |
