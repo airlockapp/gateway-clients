@@ -691,6 +691,7 @@ class Program
     // ── Setup Wizard ────────────────────────────────────────────────────
     static async Task RunSetupWizard()
     {
+        _heartbeatCts?.Cancel();
         AnsiConsole.Write(new Rule("[yellow]Setup[/]").RuleStyle("grey"));
 
         _config.GatewayUrl = AnsiConsole.Prompt(

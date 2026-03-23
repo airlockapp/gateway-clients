@@ -1,6 +1,7 @@
 package airlock
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -81,6 +82,39 @@ func TestSubmitArtifact(t *testing.T) {
 	}
 	if reqID != "req-test123" {
 		t.Errorf("expected req-test123, got %s", reqID)
+	}
+}
+
+func TestEncryptAndSubmitArtifact(t *testing.T) {
+	keyB64 := ToBase64URL(bytes.Repeat([]byte{7}, 32))
+
+	client, server := setupTest(func(w http.ResponseWriter, r *http.Request) {
+		var envelope HarpEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&envelope)
+		raw, _ := json.Marshal(envelope.Body)
+		s := string(raw)
+		if !strings.Contains(s, "d3c2d7effb479ffc5085aad2144df886a452a4863396060f4e0ea29a8409d0fd") {
+			t.Errorf("expected canonical artifact hash in body, got %s", s)
+		}
+		if !strings.Contains(s, "AES-256-GCM") {
+			t.Errorf("expected AES-256-GCM ciphertext, got %s", s)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprint(w, `{}`)
+	})
+	defer server.Close()
+
+	reqID, err := client.EncryptAndSubmitArtifact(EncryptedArtifactRequest{
+		EnforcerID:            "e1",
+		PlaintextPayload:      `{"value":42,"action":"test"}`,
+		EncryptionKeyBase64:   keyB64,
+		RequestID:             "req-enc",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reqID != "req-enc" {
+		t.Errorf("expected req-enc, got %s", reqID)
 	}
 }
 

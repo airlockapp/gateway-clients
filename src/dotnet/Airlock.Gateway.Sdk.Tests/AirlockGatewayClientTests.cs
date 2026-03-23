@@ -86,6 +86,32 @@ public class AirlockGatewayClientTests
     }
 
     [Fact]
+    public async Task EncryptAndSubmitArtifactAsync_PostsCanonicalHashAndAesGcmCiphertext()
+    {
+        var (client, handler) = CreateClient();
+        handler.Enqueue(HttpStatusCode.Accepted, new { msgType = "artifact.accepted" });
+
+        var keyBytes = new byte[32];
+        Array.Fill(keyBytes, (byte)7);
+        var keyB64 = CryptoHelpers.ToBase64Url(keyBytes);
+
+        var requestId = await client.EncryptAndSubmitArtifactAsync(new EncryptedArtifactRequest
+        {
+            EnforcerId = "e1",
+            PlaintextPayload = """{"value":42,"action":"test"}""",
+            EncryptionKeyBase64Url = keyB64,
+            RequestId = "req-enc",
+        });
+
+        Assert.Equal("req-enc", requestId);
+        Assert.Single(handler.Requests);
+        Assert.Contains(
+            "d3c2d7effb479ffc5085aad2144df886a452a4863396060f4e0ea29a8409d0fd",
+            handler.Requests[0].Body);
+        Assert.Contains("AES-256-GCM", handler.Requests[0].Body);
+    }
+
+    [Fact]
     public async Task SubmitArtifactAsync_GeneratesRequestIdWhenNotProvided()
     {
         var (client, handler) = CreateClient();

@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
-import { select, input, password, confirm } from '@inquirer/prompts';
+import { select, input, password, confirm, Separator } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { AirlockGatewayClient, AirlockAuthClient, AirlockGatewayError } from '@airlock/gateway-sdk';
 import type { AirlockAuthOptions, DeviceCodeInfo } from '@airlock/gateway-sdk';
@@ -142,9 +142,10 @@ function printStatus(): void {
     const authLabel = cfg.pat
         ? chalk.green('PAT (airpat_…)')
         : signedIn
-            ? chalk.green('Signed in')
+            ? chalk.green('OAuth signed in')
             : chalk.dim('Not authenticated');
-    const padLen = cfg.pat ? 13 : (signedIn ? 19 : 14);
+    const authPlain = cfg.pat ? 'PAT (airpat_…)' : signedIn ? 'OAuth signed in' : 'Not authenticated';
+    const padLen = Math.max(0, 28 - authPlain.length);
     console.log(`│ ${'Auth'.padEnd(14)} │ ${authLabel}${' '.repeat(padLen)} │`);
 
     if (cfg.routingToken) {
@@ -158,35 +159,37 @@ function printStatus(): void {
 }
 
 // ── Menu ─────────────────────────────────────────────────────────────
-function buildMenuChoices(): { name: string; value: string }[] {
+type MenuEntry = { name: string; value: string } | Separator;
+
+function buildMenuChoices(): MenuEntry[] {
     const signedIn = authClient?.isLoggedIn || Boolean(cfg.pat);
     const paired = Boolean(cfg.routingToken);
 
     if (signedIn) {
         if (paired) {
             return [
-                { name: '▸ Submit Artifact', value: 'submit' },
-                { name: '▸ Withdraw', value: 'withdraw' },
-                { name: '─────────', value: 'sep' },
-                { name: '▸ Unpair', value: 'unpair' },
-                { name: '▸ Sign Out', value: 'signout' },
-                { name: '▸ Reconfigure', value: 'reconfig' },
-                { name: '✕ Exit', value: 'exit' },
+                { name: '> Submit Artifact', value: 'submit' },
+                { name: '> Withdraw', value: 'withdraw' },
+                new Separator(),
+                { name: '> Unpair', value: 'unpair' },
+                { name: '> Sign Out', value: 'signout' },
+                { name: '> Reconfigure', value: 'reconfig' },
+                { name: 'x Exit', value: 'exit' },
             ];
         }
         return [
-            { name: '▸ Pair Device', value: 'pair' },
-            { name: '─────────', value: 'sep' },
-            { name: '▸ Sign Out', value: 'signout' },
-            { name: '▸ Reconfigure', value: 'reconfig' },
-            { name: '✕ Exit', value: 'exit' },
+            { name: '> Pair Device', value: 'pair' },
+            new Separator(),
+            { name: '> Sign Out', value: 'signout' },
+            { name: '> Reconfigure', value: 'reconfig' },
+            { name: 'x Exit', value: 'exit' },
         ];
     }
     return [
-        { name: '▸ Set PAT (recommended)', value: 'setpat' },
-        { name: '▸ Sign In (OAuth)', value: 'signin' },
-        { name: '▸ Reconfigure', value: 'reconfig' },
-        { name: '✕ Exit', value: 'exit' },
+        { name: '> Set PAT (recommended)', value: 'setpat' },
+        { name: '> Sign In (OAuth)', value: 'signin' },
+        { name: '> Reconfigure', value: 'reconfig' },
+        { name: 'x Exit', value: 'exit' },
     ];
 }
 
@@ -245,7 +248,7 @@ async function checkConsent(): Promise<void> {
             if (code === 'app_consent_required' || code === 'app_consent_pending') {
                 console.log(chalk.yellow('┌─ Consent Required ──────────────────────────────┐'));
                 console.log(chalk.yellow(`│ ${ex.message}`));
-                console.log(chalk.yellow('│ A consent request has been sent to your mobile.'));
+                console.log(chalk.yellow('│ A consent request has been sent to your mobile device.'));
                 console.log(chalk.yellow('│ Please approve it in the Airlock mobile app.'));
                 console.log(chalk.yellow('└─────────────────────────────────────────────────┘'));
                 return;
@@ -264,9 +267,9 @@ async function doPair(): Promise<void> {
 
     // Choose: new pairing or claim pre-generated code
     const mode = await select({
-        message: 'Pairing mode',
+        message: 'How do you want to pair?',
         choices: [
-            { name: 'Initiate new pairing', value: 'initiate' },
+            { name: 'New pairing (generate code)', value: 'initiate' },
             { name: 'Claim a pre-generated code', value: 'claim' },
         ],
     });
@@ -284,21 +287,22 @@ async function doPair(): Promise<void> {
         if (!code) return;
 
         const claimRes = await gwClient.claimPairing({
-            pairingCode: code,
+            pairingCode: code.trim(),
             deviceId: cfg.deviceId,
             enforcerId: cfg.enforcerId,
-            enforcerLabel: 'Test Enforcer TypeScript',
+            enforcerLabel: 'Test Enforcer CLI',
             workspaceName: cfg.workspaceName,
             gatewayUrl: cfg.gatewayUrl,
             x25519PublicKey: x25519PubB64Url,
         });
         pairingNonce = claimRes.pairingNonce;
         console.log(chalk.green(`✓ Code claimed. Nonce: ${pairingNonce}`));
+        console.log(chalk.dim('Waiting for the approver to complete pairing in the mobile app...'));
     } else {
         const res = await gwClient.initiatePairing({
             deviceId: cfg.deviceId,
             enforcerId: cfg.enforcerId,
-            enforcerLabel: 'Test Enforcer TypeScript',
+            enforcerLabel: 'Test Enforcer CLI',
             workspaceName: cfg.workspaceName,
             x25519PublicKey: x25519PubB64Url,
         });
@@ -307,11 +311,13 @@ async function doPair(): Promise<void> {
         console.log(chalk.yellow('┌─ Pairing Initiated ─────────────────────────────┐'));
         console.log(`│ Pairing Code: ${chalk.cyan.bold(res.pairingCode)}`);
         console.log(`│ Nonce:        ${res.pairingNonce}`);
-        console.log('│ Enter this code in the Airlock mobile app.');
+        console.log('│ Enter this code in the Airlock mobile app to complete pairing.');
         console.log(chalk.yellow('└─────────────────────────────────────────────────┘'));
     }
 
-    console.log(chalk.dim('Waiting for the approver to complete pairing in the mobile app...'));
+    if (mode !== 'claim') {
+        console.log(chalk.dim('Waiting for the approver to complete pairing in the mobile app...'));
+    }
     for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 5000));
         const status = await gwClient.getPairingStatus(pairingNonce);
@@ -359,32 +365,43 @@ async function doPair(): Promise<void> {
             return;
         }
     }
-    console.log(chalk.red('Pairing timed out.'));
+    console.log(chalk.red('Pairing timed out or was rejected.'));
 }
 
 // ── Submit Artifact ─────────────────────────────────────────────────
 async function doSubmit(): Promise<void> {
     await ensureFreshToken();
 
-    const reqId = `req-${crypto.randomUUID()}`;
-    const artifactHash = `hash-${crypto.randomUUID().slice(0, 12)}`;
-
-    const nonce = crypto.randomBytes(24).toString('base64');
-    const tag = crypto.randomBytes(16).toString('base64');
-    const data = crypto.randomBytes(64).toString('base64');
-
-    console.log(chalk.dim(`Submitting artifact ${reqId}...`));
-    const submittedId = await gwClient.submitArtifact({
+    const requestLabel = 'Test approval request from TypeScript enforcer';
+    const plaintextPayload = JSON.stringify({
+        requestLabel,
+        command: 'dotnet test --filter Category=Integration',
+        workspaceName: cfg.workspaceName,
         enforcerId: cfg.enforcerId,
-        artifactType: 'command-approval',
-        artifactHash,
-        ciphertext: { alg: 'xchacha20-poly1305', data, nonce, tag },
-        metadata: { routingToken: cfg.routingToken, workspaceName: cfg.workspaceName },
-        requestId: reqId,
+        timestamp: new Date().toISOString(),
     });
 
-    lastRequestId = submittedId || reqId;
-    console.log(chalk.green(`✓ Submitted: ${lastRequestId}`));
+    let encKey = cfg.encryptionKey;
+    if (!encKey) {
+        encKey = crypto.randomBytes(32).toString('base64url');
+        console.log(chalk.yellow('⚠ No encryption key from pairing — using random test key'));
+    }
+
+    console.log(chalk.dim('Submitting encrypted artifact...'));
+    const submittedId = await gwClient.encryptAndSubmitArtifact({
+        enforcerId: cfg.enforcerId,
+        artifactType: 'command-approval',
+        plaintextPayload,
+        encryptionKeyBase64Url: encKey,
+        metadata: {
+            routingToken: cfg.routingToken,
+            workspaceName: cfg.workspaceName,
+            requestLabel,
+        },
+    });
+
+    lastRequestId = submittedId;
+    console.log(chalk.green(`✓ Submitted: ${lastRequestId} (AES-256-GCM encrypted)`));
 
     // Long-poll for decision
     console.log(chalk.dim('Waiting for decision...'));
@@ -492,7 +509,8 @@ async function tryRestoreSession(): Promise<void> {
             await checkConsent();
         } catch (ex: any) {
             if (ex instanceof AirlockGatewayError && ex.statusCode === 401) {
-                console.log(chalk.yellow('⚠ PAT has been revoked or expired. Please set a new PAT.'));
+                console.log(chalk.red('✗ PAT is invalid or revoked.'));
+                console.log(chalk.yellow('Please set a new PAT or sign in with OAuth.'));
                 cfg.pat = '';
                 gwClient.setPat(undefined);
                 saveConfig();
@@ -541,10 +559,10 @@ async function tryRestoreSession(): Promise<void> {
 function reapplyAuth(): void {
     if (cfg.pat) {
         gwClient.setPat(cfg.pat);
-        console.log(chalk.green('✓ PAT re-applied after reconfigure'));
+        console.log(chalk.green('✓ PAT re-applied'));
     } else if (cfg.accessToken) {
         gwClient.setBearerToken(cfg.accessToken);
-        console.log(chalk.green('✓ Bearer token re-applied after reconfigure'));
+        console.log(chalk.green('✓ Bearer token re-applied'));
     }
 }
 
@@ -570,11 +588,11 @@ function startHeartbeat(): void {
         try {
             await gwClient.sendHeartbeat({
                 enforcerId: cfg.enforcerId,
-                enforcerLabel: 'Test Enforcer TypeScript',
+                enforcerLabel: 'Test Enforcer CLI',
                 workspaceName: cfg.workspaceName,
             });
         } catch (ex: any) {
-            console.log(chalk.dim.yellow(`❤ Heartbeat failed: ${ex.message || ex}`));
+            console.log(chalk.yellow(`❤ Heartbeat failed: ${ex.message || ex}`));
         }
     };
 
@@ -594,6 +612,7 @@ function stopHeartbeat(): void {
 
 // ── Setup Wizard ────────────────────────────────────────────────────
 async function runSetupWizard(): Promise<void> {
+    stopHeartbeat();
     console.log(chalk.yellow('─── Setup ──────────────────────────────────────'));
 
     cfg.gatewayUrl = await input({ message: 'Gateway URL:', default: cfg.gatewayUrl }) || cfg.gatewayUrl;
@@ -618,7 +637,8 @@ function handleError(ex: unknown): void {
         if (consent) {
             console.log(chalk.yellow('┌─ Consent Required ──────────────────────────────┐'));
             console.log(chalk.yellow(`│ ${consent.message}`));
-            console.log(chalk.yellow('│ Approve in the Airlock mobile app.'));
+            console.log(chalk.yellow('│ A consent request has been sent to your mobile device.'));
+            console.log(chalk.yellow('│ Please approve it in the Airlock mobile app.'));
             console.log(chalk.yellow('└─────────────────────────────────────────────────┘'));
         }
     } else {

@@ -202,10 +202,9 @@ A fully interactive TUI application that demonstrates the complete enforcer life
 ### Run
 
 ```bash
-# From the repo root
+# From a clone of airlock-gateway-clients (repository root)
 cd src/rust
 
-# Run the test enforcer
 cargo run --bin test_enforcer
 ```
 

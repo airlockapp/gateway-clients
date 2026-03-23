@@ -51,6 +51,7 @@ type ArtifactSubmitRequest struct {
 
 // EncryptedArtifactRequest holds options for transparent encrypted submission.
 // The SDK handles canonicalization, hashing, and AES-256-GCM encryption.
+// EncryptionKeyBase64 is the 32-byte AES key as standard base64 or base64url (RFC 4648).
 type EncryptedArtifactRequest struct {
 	EnforcerID          string
 	ArtifactType        string

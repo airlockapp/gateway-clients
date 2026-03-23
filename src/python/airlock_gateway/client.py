@@ -9,8 +9,12 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from airlock_gateway.exceptions import AirlockGatewayError
+from airlock_gateway.canonical_json import canonicalize
+from airlock_gateway.crypto_helpers import aes_gcm_encrypt, sha256_hex
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
+    EncryptedArtifactRequest,
+    EncryptedPayload,
     DecisionDeliverEnvelope,
     DndEffectiveResponse,
     EchoResponse,
@@ -140,6 +144,36 @@ class AirlockGatewayClient:
 
         await self._post("/v1/artifacts", envelope)
         return request_id
+
+    async def encrypt_and_submit_artifact(self, request: EncryptedArtifactRequest) -> str:
+        """Canonicalize JSON (RFC 8785), SHA-256 hash, AES-256-GCM encrypt, then submit.
+
+        Returns the request ID.
+        """
+        if not (request.plaintext_payload or "").strip():
+            raise ValueError("plaintext_payload is required")
+        if not (request.encryption_key_base64url or "").strip():
+            raise ValueError("encryption_key_base64url is required")
+
+        canonical = canonicalize(request.plaintext_payload)
+        artifact_hash = sha256_hex(canonical)
+        enc = aes_gcm_encrypt(request.encryption_key_base64url, canonical)
+        wire_ciphertext = EncryptedPayload(
+            alg=enc.alg,
+            data=enc.data,
+            nonce=enc.nonce,
+            tag=enc.tag,
+        )
+        submit = ArtifactSubmitRequest(
+            enforcer_id=request.enforcer_id,
+            artifact_type=request.artifact_type,
+            artifact_hash=artifact_hash,
+            ciphertext=wire_ciphertext,
+            expires_at=request.expires_at,
+            metadata=request.metadata,
+            request_id=request.request_id,
+        )
+        return await self.submit_artifact(submit)
 
     # ── Exchanges ────────────────────────────────────────────────
 

@@ -111,28 +111,31 @@ func main() {
 }
 
 func handleChoice(choice string) error {
+	if choice == "─────────" {
+		return nil
+	}
 	switch choice {
-	case "▸ Set PAT (recommended)":
+	case "> Set PAT (recommended)":
 		return doSetPat()
-	case "▸ Sign In (OAuth)":
+	case "> Sign In (OAuth)":
 		return doSignIn()
-	case "▸ Pair Device":
+	case "> Pair Device":
 		return doPair()
-	case "▸ Submit Artifact":
+	case "> Submit Artifact":
 		return doSubmit()
-	case "▸ Withdraw":
+	case "> Withdraw":
 		return doWithdraw()
-	case "▸ Unpair":
+	case "> Unpair":
 		return doUnpair()
-	case "▸ Sign Out":
+	case "> Sign Out":
 		return doSignOut()
-	case "▸ Reconfigure":
+	case "> Reconfigure":
 		runSetupWizard()
 		discoverGateway()
 		initClients()
 		reapplyAuth()
 		return nil
-	case "✕ Exit":
+	case "x Exit":
 		stopHeartbeat()
 		dim.Println("Goodbye!")
 		os.Exit(0)
@@ -147,11 +150,11 @@ func buildMenuChoices() []string {
 
 	if isSignedIn {
 		if isPaired {
-			return []string{"▸ Submit Artifact", "▸ Withdraw", "─────────", "▸ Unpair", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"}
+			return []string{"> Submit Artifact", "> Withdraw", "─────────", "> Unpair", "> Sign Out", "> Reconfigure", "x Exit"}
 		}
-		return []string{"▸ Pair Device", "─────────", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"}
+		return []string{"> Pair Device", "─────────", "> Sign Out", "> Reconfigure", "x Exit"}
 	}
-	return []string{"▸ Set PAT (recommended)", "▸ Sign In (OAuth)", "▸ Reconfigure", "✕ Exit"}
+	return []string{"> Set PAT (recommended)", "> Sign In (OAuth)", "> Reconfigure", "x Exit"}
 }
 
 // ── Status ───────────────────────────────────────────────────────────
@@ -167,7 +170,7 @@ func printStatus() {
 	if cfg.Pat != "" {
 		fmt.Printf("│ %-14s │ %s │\n", "Auth", green.Sprint("PAT (airpat_…)"))
 	} else if authClient != nil && authClient.IsLoggedIn() {
-		fmt.Printf("│ %-14s │ %s │\n", "Auth", green.Sprint("Signed in"))
+		fmt.Printf("│ %-14s │ %s │\n", "Auth", green.Sprint("OAuth signed in"))
 	} else {
 		fmt.Printf("│ %-14s │ %s │\n", "Auth", dim.Sprint("Not authenticated"))
 	}
@@ -188,7 +191,7 @@ func printStatus() {
 // ── Set PAT (recommended flow) ───────────────────────────────────────
 func doSetPat() error {
 	prompt := promptui.Prompt{
-		Label: "Paste your Personal Access Token (airpat_…)",
+		Label: "Paste your Personal Access Token (airpat_…):",
 		Mask:  '*',
 	}
 	pat, err := prompt.Run()
@@ -259,7 +262,7 @@ func checkConsent() {
 			if consentErr != nil {
 				yellow.Println("┌─ Consent Required ──────────────────────────────┐")
 				yellow.Printf("│ %s\n", consentErr.Message)
-				yellow.Println("│ A consent request has been sent to your mobile.")
+				yellow.Println("│ A consent request has been sent to your mobile device.")
 				yellow.Println("│ Please approve it in the Airlock mobile app.")
 				yellow.Println("└─────────────────────────────────────────────────┘")
 				return
@@ -277,7 +280,7 @@ func doPair() error {
 		hn, _ := os.Hostname()
 		defaultID := fmt.Sprintf("dev-%s", strings.ToLower(hn))
 		prompt := promptui.Prompt{
-			Label:   "Device ID",
+			Label:   "Device ID:",
 			Default: defaultID,
 		}
 		result, err := prompt.Run()
@@ -292,8 +295,8 @@ func doPair() error {
 
 	// Choose: new pairing or claim pre-generated code
 	modePrompt := promptui.Select{
-		Label: "Pairing mode",
-		Items: []string{"Initiate new pairing", "Claim a pre-generated code"},
+		Label: "How do you want to pair?",
+		Items: []string{"New pairing (generate code)", "Claim a pre-generated code"},
 	}
 	_, mode, err := modePrompt.Run()
 	if err != nil {
@@ -308,7 +311,7 @@ func doPair() error {
 
 	var pairingNonce string
 
-	if mode == "Claim a pre-generated code" {
+	if strings.HasPrefix(mode, "Claim") {
 		codePrompt := promptui.Prompt{Label: "Enter the pre-generated pairing code"}
 		code, err := codePrompt.Run()
 		if err != nil || code == "" {
@@ -316,10 +319,10 @@ func doPair() error {
 		}
 
 		claimReq := airlock.PairingClaimRequest{
-			PairingCode:     code,
+			PairingCode:     strings.TrimSpace(code),
 			DeviceID:        cfg.DeviceID,
 			EnforcerID:      cfg.EnforcerID,
-			EnforcerLabel:   "Test Enforcer Go",
+			EnforcerLabel:   "Test Enforcer CLI",
 			WorkspaceName:   cfg.WorkspaceName,
 			GatewayURL:      cfg.GatewayURL,
 			X25519PubKey:    x25519kp.PublicKey,
@@ -331,11 +334,12 @@ func doPair() error {
 		}
 		pairingNonce = claimRes.PairingNonce
 		green.Printf("✓ Code claimed. Nonce: %s\n", pairingNonce)
+		dim.Println("Waiting for the approver to complete pairing in the mobile app...")
 	} else {
 		req := airlock.PairingInitiateRequest{
 			DeviceID:        cfg.DeviceID,
 			EnforcerID:      cfg.EnforcerID,
-			EnforcerLabel:   "Test Enforcer Go",
+			EnforcerLabel:   "Test Enforcer CLI",
 			WorkspaceName:   cfg.WorkspaceName,
 			X25519PublicKey: x25519kp.PublicKey,
 		}
@@ -349,12 +353,14 @@ func doPair() error {
 		yellow.Println("┌─ Pairing Initiated ─────────────────────────────┐")
 		bold.Printf("│ Pairing Code: %s\n", cyan.Sprint(res.PairingCode))
 		fmt.Printf("│ Nonce:        %s\n", res.PairingNonce)
-		yellow.Println("│ Enter this code in the Airlock mobile app.")
+		yellow.Println("│ Enter this code in the Airlock mobile app to complete pairing.")
 		yellow.Println("└─────────────────────────────────────────────────┘")
 	}
 
 	// Poll for completion
-	dim.Println("Waiting for the approver to complete pairing in the mobile app...")
+	if !strings.HasPrefix(mode, "Claim") {
+		dim.Println("Waiting for the approver to complete pairing in the mobile app...")
+	}
 	for i := 0; i < 60; i++ { // 5 min max
 		time.Sleep(5 * time.Second)
 		status, err := gwClient.GetPairingStatus(pairingNonce)
@@ -399,7 +405,7 @@ func doPair() error {
 		}
 	}
 
-	red.Println("Pairing timed out.")
+	red.Println("Pairing timed out or was rejected.")
 	return nil
 }
 
@@ -408,13 +414,16 @@ func doSubmit() error {
 	ensureFreshToken()
 
 	// Build plaintext payload
-	plaintext, _ := json.Marshal(map[string]string{
+	plaintext, err := json.Marshal(map[string]string{
 		"requestLabel":  "Test approval request from Go enforcer",
-		"command":       "go test ./...",
+		"command":       "dotnet test --filter Category=Integration",
 		"workspaceName": cfg.WorkspaceName,
 		"enforcerId":    cfg.EnforcerID,
-		"timestamp":     time.Now().Format(time.RFC3339),
+		"timestamp":     time.Now().UTC().Format(time.RFC3339Nano),
 	})
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
 
 	// Use stored encryption key or generate a test key
 	encKey := cfg.EncryptionKey
@@ -425,43 +434,24 @@ func doSubmit() error {
 		yellow.Println("⚠ No encryption key from pairing — using random test key")
 	}
 
-	// Canonicalize and hash
-	canonical, err := airlock.CanonicalizeJSON(string(plaintext))
-	if err != nil {
-		return fmt.Errorf("canonicalize: %w", err)
-	}
-	artifactHash := airlock.SHA256Hex(canonical)
-
-	// Encrypt with AES-256-GCM
-	ciphertext, err := airlock.AesGcmEncrypt(encKey, canonical)
-	if err != nil {
-		return fmt.Errorf("encrypt: %w", err)
-	}
-
-	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
-	req := airlock.ArtifactSubmitRequest{
-		EnforcerID:   cfg.EnforcerID,
-		ArtifactType: "command-approval",
-		ArtifactHash: artifactHash,
-		Ciphertext:   *ciphertext,
+	encReq := airlock.EncryptedArtifactRequest{
+		EnforcerID:          cfg.EnforcerID,
+		ArtifactType:        "command-approval",
+		PlaintextPayload:    string(plaintext),
+		EncryptionKeyBase64: encKey,
 		Metadata: map[string]string{
 			"routingToken":  cfg.RoutingToken,
 			"workspaceName": cfg.WorkspaceName,
 			"requestLabel":  "Test approval request from Go enforcer",
 		},
-		RequestID: reqID,
 	}
 
 	dim.Println("Submitting encrypted artifact...")
-	submittedID, err := gwClient.SubmitArtifact(req)
+	submittedID, err := gwClient.EncryptAndSubmitArtifact(encReq)
 	if err != nil {
 		return err
 	}
-	if submittedID != "" {
-		lastReqID = submittedID
-	} else {
-		lastReqID = reqID
-	}
+	lastReqID = submittedID
 
 	green.Printf("✓ Submitted: %s (AES-256-GCM encrypted)\n", lastReqID)
 
@@ -512,7 +502,7 @@ func doSubmit() error {
 func doWithdraw() error {
 	id := lastReqID
 	if id == "" {
-		prompt := promptui.Prompt{Label: "Request ID to withdraw"}
+		prompt := promptui.Prompt{Label: "Request ID to withdraw:"}
 		var err error
 		id, err = prompt.Run()
 		if err != nil || id == "" {
@@ -538,7 +528,7 @@ func doUnpair() error {
 	}
 
 	prompt := promptui.Prompt{
-		Label:     "Revoke pairing",
+		Label:     "Revoke pairing?",
 		IsConfirm: true,
 	}
 	_, err := prompt.Run()
@@ -585,12 +575,12 @@ func tryRestoreSession() {
 		green.Println("✓ PAT restored")
 
 		// Validate PAT is still active — handle revoked tokens gracefully
-		dim.Println("Checking consent...")
-		_, err := gwClient.CheckConsent()
+		status, err := gwClient.CheckConsent()
 		if err != nil {
 			var gwErr *airlock.GatewayError
 			if errors.As(err, &gwErr) && gwErr.StatusCode == 401 {
-				yellow.Println("⚠ PAT has been revoked or expired. Please set a new PAT.")
+				red.Println("✗ PAT is invalid or revoked.")
+				yellow.Println("Please set a new PAT or sign in with OAuth.")
 				cfg.Pat = ""
 				gwClient.SetPat("")
 				saveConfig()
@@ -602,7 +592,7 @@ func tryRestoreSession() {
 				if consentErr != nil {
 					yellow.Println("┌─ Consent Required ──────────────────────────────┐")
 					yellow.Printf("│ %s\n", consentErr.Message)
-					yellow.Println("│ A consent request has been sent to your mobile.")
+					yellow.Println("│ A consent request has been sent to your mobile device.")
 					yellow.Println("│ Please approve it in the Airlock mobile app.")
 					yellow.Println("└─────────────────────────────────────────────────┘")
 				} else {
@@ -612,7 +602,7 @@ func tryRestoreSession() {
 				yellow.Printf("⚠ PAT validation failed: %v\n", err)
 			}
 		} else {
-			green.Println("✓ Consent OK")
+			green.Printf("✓ Consent status: %s\n", status)
 		}
 
 		if cfg.RoutingToken != "" {
@@ -658,10 +648,10 @@ func tryRestoreSession() {
 func reapplyAuth() {
 	if cfg.Pat != "" {
 		gwClient.SetPat(cfg.Pat)
-		green.Println("✓ PAT re-applied after reconfigure")
+		green.Println("✓ PAT re-applied")
 	} else if cfg.AccessToken != "" {
 		gwClient.SetBearerToken(cfg.AccessToken)
-		green.Println("✓ Bearer token re-applied after reconfigure")
+		green.Println("✓ Bearer token re-applied")
 	}
 }
 
@@ -696,11 +686,11 @@ func startHeartbeat() {
 		sendBeat := func() {
 			err := gwClient.SendHeartbeat(airlock.PresenceHeartbeatRequest{
 				EnforcerID:    cfg.EnforcerID,
-				EnforcerLabel: "Test Enforcer Go",
+				EnforcerLabel: "Test Enforcer CLI",
 				WorkspaceName: cfg.WorkspaceName,
 			})
 			if err != nil {
-				dim.Printf("❤ Heartbeat failed: %v\n", err)
+				yellow.Printf("❤ Heartbeat failed: %v\n", err)
 			}
 		}
 
@@ -732,6 +722,7 @@ func stopHeartbeat() {
 
 // ── Setup Wizard ────────────────────────────────────────────────────
 func runSetupWizard() {
+	stopHeartbeat()
 	yellow.Println("─── Setup ──────────────────────────────────────")
 
 	prompts := []struct {

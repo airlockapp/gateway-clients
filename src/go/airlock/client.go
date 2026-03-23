@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -111,6 +112,46 @@ func (c *Client) SubmitArtifact(req ArtifactSubmitRequest) (string, error) {
 	}
 
 	return requestID, c.doPost("/v1/artifacts", envelope, nil)
+}
+
+// EncryptAndSubmitArtifact canonicalizes plaintext JSON (RFC 8785 JCS), SHA-256 hashes it,
+// encrypts the canonical bytes with AES-256-GCM using the pairing-derived key (base64url),
+// and submits the artifact. EncryptionKeyBase64 must be a 32-byte key as base64 or base64url.
+func (c *Client) EncryptAndSubmitArtifact(req EncryptedArtifactRequest) (string, error) {
+	if req.PlaintextPayload == "" {
+		return "", fmt.Errorf("PlaintextPayload is required")
+	}
+	if req.EncryptionKeyBase64 == "" {
+		return "", fmt.Errorf("EncryptionKeyBase64 is required")
+	}
+
+	canonical, err := CanonicalizeJSON(req.PlaintextPayload)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize: %w", err)
+	}
+
+	artifactHash := SHA256Hex(canonical)
+	ciphertext, err := AesGcmEncrypt(req.EncryptionKeyBase64, canonical)
+	if err != nil {
+		return "", fmt.Errorf("encrypt: %w", err)
+	}
+
+	artifactType := req.ArtifactType
+	if artifactType == "" {
+		artifactType = "command-approval"
+	}
+
+	submit := ArtifactSubmitRequest{
+		EnforcerID:   req.EnforcerID,
+		ArtifactType: artifactType,
+		ArtifactHash: artifactHash,
+		Ciphertext:   *ciphertext,
+		ExpiresAt:    req.ExpiresAt,
+		Metadata:     req.Metadata,
+		RequestID:    req.RequestID,
+	}
+
+	return c.SubmitArtifact(submit)
 }
 
 // ── Exchanges ───────────────────────────────────────────────────
@@ -288,24 +329,43 @@ func (c *Client) doPost(path string, payload interface{}, out interface{}) error
 	return nil
 }
 
+// sanitizeHeaderCredential trims and removes bytes that net/http rejects in header values
+// (CTLs per golang.org/x/net/http/httpguts: < 0x20 except HTAB, and DEL 0x7f).
+func sanitizeHeaderCredential(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '\t' || (c >= 0x20 && c != 0x7f) {
+			b.WriteByte(c)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 func (c *Client) rawRequest(method, path string, body io.Reader) (*http.Response, []byte, error) {
-	reqURL := c.baseURL + path
+	reqURL := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(c.baseURL, "\r", ""), "\n", "")) + path
 	req, err := http.NewRequest(method, reqURL, body)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if c.pat != "" {
-		req.Header.Set("X-PAT", c.pat)
+	// net/http rejects header values containing CR/LF (common when IDs are pasted or JSON has Windows newlines).
+	if v := sanitizeHeaderCredential(c.pat); v != "" {
+		req.Header.Set("X-PAT", v)
 	}
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+	if t := sanitizeHeaderCredential(c.token); t != "" {
+		req.Header.Set("Authorization", "Bearer "+t)
 	}
-	if c.clientID != "" {
-		req.Header.Set("X-Client-Id", c.clientID)
+	if v := sanitizeHeaderCredential(c.clientID); v != "" {
+		req.Header.Set("X-Client-Id", v)
 	}
-	if c.clientSecret != "" {
-		req.Header.Set("X-Client-Secret", c.clientSecret)
+	if v := sanitizeHeaderCredential(c.clientSecret); v != "" {
+		req.Header.Set("X-Client-Secret", v)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

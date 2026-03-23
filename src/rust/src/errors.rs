@@ -22,6 +22,10 @@ pub enum GatewayError {
     /// JSON serialization/deserialization error.
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
+
+    /// Canonicalization, hashing, or local crypto failure before submit.
+    #[error("crypto: {0}")]
+    Crypto(String),
 }
 
 impl GatewayError {

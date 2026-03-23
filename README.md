@@ -2,6 +2,8 @@
 
 Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
+This repository is the **standalone home** for these SDKs. The same sources are also kept under `gateway_sdk/` in the main [Airlock](https://github.com/airlockapp/airlock) monorepo for product development; changes are periodically synced here.
+
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
 > Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
 
@@ -17,7 +19,7 @@ Multi-language client SDKs for the [Airlock Integrations Gateway](https://airloc
 
 ## Developer Guide
 
-For detailed information on configuring enforcers, end-to-end encryption, workspace pairing architectures, and common integration patterns, please refer to the comprehensive [Airlock Enforcer Developer Guide](DEVELOPER_GUIDE.md).
+For enforcer configuration, end-to-end encryption, workspace pairing, and integration patterns, see the [Airlock Enforcer Developer Guide](DEVELOPER_GUIDE.md).
 
 ## Gateway API Surface
 
@@ -32,25 +34,34 @@ All SDKs cover the **enforcer-side** endpoints:
 | `POST /v1/exchanges/{requestId}/withdraw` | Withdraw a pending exchange |
 | `POST /v1/pairing/initiate` | Start a new pairing session |
 | `GET /v1/pairing/{nonce}/status` | Poll pairing status |
-| `POST /v1/pairing/claim` | Claim a pre-generated pairing code |
 | `POST /v1/pairing/revoke` | Revoke a pairing |
+| `POST /v1/pairing/pre-generate` | Pre-generate a pairing code (30-min TTL) |
+| `POST /v1/pairing/claim` | Enforcer claims a pre-generated code |
 | `POST /v1/presence/heartbeat` | Send a presence heartbeat |
 | `GET /v1/policy/dnd/effective` | Fetch effective DND policies |
 
 ## Authentication
 
-The SDKs support three authentication modes:
+The SDKs support three user identity modes. PAT is the **recommended** method.
 
-### Personal Access Token (PAT)
-Pass a Personal Access Token (PAT) generated via the Airlock dashboard. This is the recommended identity mechanism for CLI and script-based enforcers. It is sent as the `X-PAT` HTTP header.
+### Personal Access Token (PAT) — Recommended
+
+The simplest and most secure option. Create a PAT from the Platform App or Mobile Approver, then set it on the client:
 
 ```python
-client = AirlockGatewayClient("https://igw.airlocks.io")
-client.set_pat("airpat_1234567890abcdef")
+client = AirlockGatewayClient(
+    "https://igw.airlocks.io",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+client.set_pat("airpat_...")
 ```
 
-### Bearer Token
-Pass a JWT token issued by the Airlock Keycloak identity provider:
+The SDK sends the PAT via the `X-PAT` header. PATs are prefixed with `airpat_` and can be created with a custom expiry date (max 1 year).
+
+### Bearer Token (OAuth fallback)
+
+Pass a JWT token issued by the Airlock Keycloak identity provider via Device Authorization Grant:
 
 ```python
 client = AirlockGatewayClient("https://igw.airlocks.io", token="your-jwt-token")
@@ -84,8 +95,10 @@ client = AirlockGatewayClient("https://igw.airlocks.io",
 client.set_bearer_token(access_token)
 ```
 
-When both are present, the user's Bearer token takes precedence in the `Authorization`
-header, while credentials are still sent via `X-Client-Id` / `X-Client-Secret`.
+When both are present, the user's identity (PAT or Bearer token) takes precedence for user-scoped
+operations, while credentials are still sent via `X-Client-Id` / `X-Client-Secret`.
+
+> **Auth priority:** Gateway checks `X-PAT` first, then `Authorization: Bearer`, then app credentials.
 
 > **Architecture Constraint:** Third-party enforcers must communicate **only** with the
 > Integrations Gateway (`igw.airlocks.io`). The mobile app must communicate **only** with
@@ -135,7 +148,7 @@ This key is used for AES-256-GCM artifact encryption and decision decryption.
 A unified PowerShell script handles building, testing, packaging, and publishing all SDKs:
 
 ```powershell
-# Build and package all SDKs
+# Build and package all SDKs (run from repository root)
 .\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0
 
 # Build a single SDK
@@ -172,6 +185,8 @@ Each SDK includes a fully interactive TUI test enforcer application that demonst
 | Rust | [`src/rust/`](src/rust/) | `cargo run --bin test_enforcer` |
 
 Configuration is persisted to `~/.airlock/test-enforcer-{language}.json` and restored automatically on subsequent runs.
+
+All test enforcers default to **PAT as the recommended authentication** method, with OAuth Device Auth Grant as a fallback. The menu shows "Set PAT (recommended)" first.
 
 See each SDK's README for detailed prerequisites and setup instructions.
 

@@ -10,6 +10,7 @@ from airlock_gateway.client import AirlockGatewayClient
 from airlock_gateway.exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
+    EncryptedArtifactRequest,
     EncryptedPayload,
     PairingInitiateRequest,
     PresenceHeartbeatRequest,
@@ -61,6 +62,29 @@ async def test_submit_artifact_posts_envelope(client, mock_api):
     body = route.calls[0].request.content
     assert b"artifact.submit" in body
     assert b"enforcer-1" in body
+
+
+@pytest.mark.asyncio
+async def test_encrypt_and_submit_artifact(client, mock_api):
+    import base64
+
+    key_b64url = base64.urlsafe_b64encode(bytes([7] * 32)).decode("ascii").rstrip("=")
+    route = mock_api.post("/v1/artifacts").respond(202, json={})
+
+    request_id = await client.encrypt_and_submit_artifact(
+        EncryptedArtifactRequest(
+            enforcer_id="e1",
+            plaintext_payload='{"value":42,"action":"test"}',
+            encryption_key_base64url=key_b64url,
+            request_id="req-enc",
+        )
+    )
+
+    assert request_id == "req-enc"
+    assert route.called
+    body = route.calls[0].request.content
+    assert b"d3c2d7effb479ffc5085aad2144df886a452a4863396060f4e0ea29a8409d0fd" in body
+    assert b"AES-256-GCM" in body
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ from .auth_client import AirlockAuthClient, AirlockAuthOptions
 from .exceptions import AirlockGatewayError
 from airlock_gateway.models import (
     ArtifactSubmitRequest,
+    EncryptedArtifactRequest,
     EncryptedPayload,
     DecisionDeliverBody,
     DndEffectiveResponse,
@@ -30,6 +31,7 @@ __all__ = [
     "AirlockGatewayClient",
     "AirlockGatewayError",
     "ArtifactSubmitRequest",
+    "EncryptedArtifactRequest",
     "EncryptedPayload",
     "DecisionDeliverBody",
     "DndEffectiveResponse",

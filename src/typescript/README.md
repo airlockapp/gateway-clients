@@ -119,6 +119,23 @@ try {
 
 ## Submit and Poll
 
+### Encrypt and submit (Node.js)
+
+`encryptAndSubmitArtifact` runs RFC 8785 JSON canonicalization, SHA-256 of the canonical bytes, AES-256-GCM encryption with your pairing-derived key, then `submitArtifact`. It uses `node:crypto` and is loaded only when you call this method (dynamic import).
+
+```typescript
+const requestId = await client.encryptAndSubmitArtifact({
+    enforcerId: "my-enforcer",
+    plaintextPayload: JSON.stringify({ kind: "shell", cmd: "npm publish" }),
+    encryptionKeyBase64Url: derivedAes256KeyFromPairing,
+    metadata: { routingToken: "rt-abc" },
+});
+```
+
+For custom flows, the package also exports `canonicalizeJson`, `sha256Hex`, and `aesGcmEncrypt` (all Node-only).
+
+### Manual ciphertext
+
 ```typescript
 // Submit an artifact for approval
 const requestId = await client.submitArtifact({
@@ -149,6 +166,7 @@ if (decision?.body?.decision === "approve") {
 | `setBearerToken(token)` | Set Bearer token for user-scoped operations |
 | `checkConsent()` | Check if user has consented to this enforcer app |
 | `submitArtifact(request)` | Submit artifact for approval |
+| `encryptAndSubmitArtifact(request)` | JCS + SHA-256 + AES-GCM encrypt, then submit (Node.js) |
 | `getExchangeStatus(requestId)` | Get exchange status |
 | `waitForDecision(requestId, timeout)` | Long-poll for decision |
 | `withdrawExchange(requestId)` | Withdraw pending exchange |
@@ -226,8 +244,9 @@ On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Se
 
 ## Requirements
 
-- Node.js 18+ (native `fetch`) or modern browser
-- Zero runtime dependencies
+- Node.js 18+ (native `fetch`) or modern browser for HTTP client use
+- `encryptAndSubmitArtifact` / `aesGcmEncrypt` require Node.js (`node:crypto`)
+- Zero npm runtime dependencies for the HTTP client
 
 ## Development
 

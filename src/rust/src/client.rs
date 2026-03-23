@@ -1,5 +1,7 @@
 //! Async HTTP client for the Airlock Integrations Gateway API.
 
+use crate::canonical_json::canonicalize;
+use crate::crypto::{aes_gcm_encrypt, sha256_hex};
 use crate::errors::GatewayError;
 use crate::models::*;
 use reqwest::Client as HttpClient;
@@ -144,6 +146,41 @@ impl AirlockGatewayClient {
 
         self.post_void("/v1/artifacts", &envelope).await?;
         Ok(request_id)
+    }
+
+    /// Canonicalize JSON (RFC 8785), SHA-256 hash, AES-256-GCM encrypt, then submit.
+    pub async fn encrypt_and_submit_artifact(
+        &self,
+        request: EncryptedArtifactRequest,
+    ) -> Result<String, GatewayError> {
+        if request.plaintext_payload.trim().is_empty() {
+            return Err(GatewayError::Crypto(
+                "plaintext_payload is required".into(),
+            ));
+        }
+        if request.encryption_key_base64url.trim().is_empty() {
+            return Err(GatewayError::Crypto(
+                "encryption_key_base64url is required".into(),
+            ));
+        }
+
+        let canonical =
+            canonicalize(&request.plaintext_payload).map_err(GatewayError::Crypto)?;
+        let artifact_hash = sha256_hex(&canonical);
+        let ciphertext = aes_gcm_encrypt(&request.encryption_key_base64url, &canonical)
+            .map_err(GatewayError::Crypto)?;
+
+        let submit = ArtifactSubmitRequest {
+            enforcer_id: request.enforcer_id,
+            artifact_type: request.artifact_type,
+            artifact_hash,
+            ciphertext,
+            expires_at: request.expires_at,
+            metadata: request.metadata,
+            request_id: request.request_id,
+        };
+
+        self.submit_artifact(submit).await
     }
 
     // ── Exchanges ───────────────────────────────────────────────

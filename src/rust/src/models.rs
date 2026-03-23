@@ -75,6 +75,18 @@ pub struct ArtifactSubmitRequest {
     pub request_id: Option<String>,
 }
 
+/// Options for encrypt-and-submit: JCS canonicalize → SHA-256 → AES-256-GCM → [`submit_artifact`](crate::AirlockGatewayClient::submit_artifact).
+#[derive(Debug, Clone)]
+pub struct EncryptedArtifactRequest {
+    pub enforcer_id: String,
+    pub artifact_type: Option<String>,
+    pub plaintext_payload: String,
+    pub encryption_key_base64url: String,
+    pub expires_at: Option<String>,
+    pub metadata: Option<HashMap<String, String>>,
+    pub request_id: Option<String>,
+}
+
 // ── Decision ────────────────────────────────────────────────────
 
 /// Body of a decision.deliver envelope.

@@ -2,6 +2,8 @@
 
 > **Audience:** Developers who want to build third-party enforcer applications that integrate with the Airlock security gateway for human-in-the-loop AI agent approval.
 
+> **Where this document lives:** It ships with the SDK sources in the **airlock-gateway-clients** repository. The same guide is mirrored under `gateway_sdk/DEVELOPER_GUIDE.md` in the main Airlock application monorepo.
+
 ---
 
 ## Table of Contents
@@ -509,7 +511,7 @@ All test enforcers implement the same set of scenarios:
 
 #### 🔧 Setup & Configuration
 - **Interactive setup wizard** — prompts for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name.
-- **Persistent configuration** — saves settings to `~/.airlock/test-enforcer.json` (or equivalent) so you don't have to re-enter credentials every time.
+- **Persistent configuration** — each test enforcer uses its own file under `~/.airlock/` so CLIs do not overwrite each other: .NET `test-enforcer.json`, Go `test-enforcer-go.json`, TypeScript `test-enforcer-typescript.json`, Python `test-enforcer-python.json`, Rust `test-enforcer-rust.json`.
 - **Reconfigure** — re-run the setup wizard at any time from the menu.
 
 #### 🔑 Authentication
@@ -556,14 +558,14 @@ All test enforcers implement the same set of scenarios:
 ### Running the .NET Test Enforcer
 
 ```bash
-cd gateway_sdk/src/dotnet/Airlock.Gateway.Sdk.TestEnforcer
+cd src/dotnet/Airlock.Gateway.Sdk.TestEnforcer
 dotnet run
 ```
 
 ### Running the TypeScript Test Enforcer
 
 ```bash
-cd gateway_sdk/src/typescript/test-enforcer
+cd src/typescript/test-enforcer
 npm install
 npx ts-node index.ts
 ```
@@ -571,16 +573,23 @@ npx ts-node index.ts
 ### Running the Go Test Enforcer
 
 ```bash
-cd gateway_sdk/src/go
+cd src/go
 go run ./cmd/test-enforcer
 ```
 
 ### Running the Python Test Enforcer
 
 ```bash
-cd gateway_sdk/src/python
+cd src/python
 pip install -e .
 python test_enforcer.py
+```
+
+### Running the Rust Test Enforcer
+
+```bash
+cd src/rust
+cargo run --bin test_enforcer
 ```
 
 ---

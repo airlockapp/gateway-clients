@@ -2,7 +2,7 @@ import { AirlockGatewayError } from "./errors.js";
 import type {
     ArtifactSubmitBody,
     ArtifactSubmitRequest,
-    CiphertextRef,
+    EncryptedArtifactRequest,
     DecisionDeliverEnvelope,
     DndEffectiveResponse,
     EchoResponse,
@@ -103,6 +103,37 @@ export class AirlockGatewayClient {
 
         await this.post("/v1/artifacts", envelope);
         return requestId;
+    }
+
+    /**
+     * Canonicalize plaintext JSON (RFC 8785 JCS), SHA-256 hash, AES-256-GCM encrypt, then submit.
+     * Returns the request ID.
+     */
+    async encryptAndSubmitArtifact(request: EncryptedArtifactRequest): Promise<string> {
+        if (!request.plaintextPayload?.trim()) {
+            throw new Error("plaintextPayload is required");
+        }
+        if (!request.encryptionKeyBase64Url?.trim()) {
+            throw new Error("encryptionKeyBase64Url is required");
+        }
+
+        const [{ canonicalizeJson }, { aesGcmEncrypt, sha256Hex }] = await Promise.all([
+            import("./canonical-json.js"),
+            import("./crypto.js"),
+        ]);
+        const canonical = canonicalizeJson(request.plaintextPayload);
+        const artifactHash = sha256Hex(canonical);
+        const ciphertext = aesGcmEncrypt(request.encryptionKeyBase64Url, canonical);
+
+        return this.submitArtifact({
+            enforcerId: request.enforcerId,
+            artifactType: request.artifactType ?? "command-approval",
+            artifactHash,
+            ciphertext,
+            expiresAt: request.expiresAt,
+            metadata: request.metadata,
+            requestId: request.requestId,
+        });
     }
 
     // ── Exchanges ───────────────────────────────────────────────

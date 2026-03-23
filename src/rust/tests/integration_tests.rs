@@ -3,6 +3,7 @@
 //! Uses wiremock for HTTP mocking.
 
 use airlock_gateway::*;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -69,6 +70,41 @@ async fn test_submit_artifact() {
         .unwrap();
 
     assert_eq!(result, "req-test123");
+}
+
+#[tokio::test]
+async fn test_encrypt_and_submit_artifact() {
+    let (client, server) = setup().await;
+
+    Mock::given(method("POST"))
+        .and(path("/v1/artifacts"))
+        .respond_with(ResponseTemplate::new(202).set_body_json(serde_json::json!({})))
+        .mount(&server)
+        .await;
+
+    let key_b64 = URL_SAFE_NO_PAD.encode([7u8; 32]);
+
+    let result = client
+        .encrypt_and_submit_artifact(EncryptedArtifactRequest {
+            enforcer_id: "e1".into(),
+            artifact_type: None,
+            plaintext_payload: r#"{"value":42,"action":"test"}"#.into(),
+            encryption_key_base64url: key_b64,
+            expires_at: None,
+            metadata: None,
+            request_id: Some("req-enc".into()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(result, "req-enc");
+
+    let reqs = server.received_requests().await.unwrap();
+    let body = std::str::from_utf8(&reqs[0].body).unwrap();
+    assert!(body.contains(
+        "d3c2d7effb479ffc5085aad2144df886a452a4863396060f4e0ea29a8409d0fd"
+    ));
+    assert!(body.contains("AES-256-GCM"));
 }
 
 #[tokio::test]

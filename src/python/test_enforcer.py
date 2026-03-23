@@ -38,6 +38,7 @@ class Config:
         self.workspace_name = "default"
         self.device_id = ""
         self.routing_token = ""
+        self.encryption_key = ""
         self.pat = ""
         self.access_token = ""
         self.refresh_token = ""
@@ -52,6 +53,7 @@ class Config:
             "workspaceName": self.workspace_name,
             "deviceId": self.device_id,
             "routingToken": self.routing_token,
+            "encryptionKey": self.encryption_key,
             "pat": self.pat,
             "accessToken": self.access_token,
             "refreshToken": self.refresh_token,
@@ -68,6 +70,7 @@ class Config:
         c.workspace_name = data.get("workspaceName", c.workspace_name)
         c.device_id = data.get("deviceId", c.device_id)
         c.routing_token = data.get("routingToken", c.routing_token)
+        c.encryption_key = data.get("encryptionKey", "")
         c.pat = data.get("pat", c.pat)
         c.access_token = data.get("accessToken", c.access_token)
         c.refresh_token = data.get("refreshToken", c.refresh_token)
@@ -174,7 +177,7 @@ def print_status():
     if cfg.pat:
         table.add_row("Auth", "[green]PAT (airpat_…)[/green]")
     elif signed_in:
-        table.add_row("Auth", "[green]Signed in[/green]")
+        table.add_row("Auth", "[green]OAuth signed in[/green]")
     else:
         table.add_row("Auth", "[dim]Not authenticated[/dim]")
 
@@ -194,9 +197,23 @@ def build_menu_choices() -> list:
 
     if signed_in:
         if paired:
-            return ["▸ Submit Artifact", "▸ Withdraw", "─────────", "▸ Unpair", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"]
-        return ["▸ Pair Device", "─────────", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"]
-    return ["▸ Set PAT (recommended)", "▸ Sign In (OAuth)", "▸ Reconfigure", "✕ Exit"]
+            return [
+                "> Submit Artifact",
+                "> Withdraw",
+                questionary.Separator(),
+                "> Unpair",
+                "> Sign Out",
+                "> Reconfigure",
+                "x Exit",
+            ]
+        return [
+            "> Pair Device",
+            questionary.Separator(),
+            "> Sign Out",
+            "> Reconfigure",
+            "x Exit",
+        ]
+    return ["> Set PAT (recommended)", "> Sign In (OAuth)", "> Reconfigure", "x Exit"]
 
 
 # ── Set PAT (recommended flow) ──────────────────────────────────────
@@ -273,8 +290,8 @@ async def do_pair():
 
     # Choose: new pairing or claim pre-generated code
     mode = await questionary.select(
-        "Pairing mode:",
-        choices=["Initiate new pairing", "Claim a pre-generated code"],
+        "How do you want to pair?",
+        choices=["New pairing (generate code)", "Claim a pre-generated code"],
     ).ask_async()
     if not mode:
         return
@@ -283,9 +300,9 @@ async def do_pair():
     from airlock_gateway.crypto_helpers import generate_x25519_keypair, derive_shared_key
     x25519kp = generate_x25519_keypair()
 
-    if mode == "Claim a pre-generated code":
+    if mode and mode.startswith("Claim"):
         from airlock_gateway.models import PairingClaimRequest as ClaimReq
-        code = await questionary.text("Enter the pre-generated pairing code:").ask_async()
+        code = (await questionary.text("Enter the pre-generated pairing code:").ask_async() or "").strip()
         if not code:
             return
 
@@ -293,7 +310,7 @@ async def do_pair():
             pairing_code=code,
             device_id=cfg.device_id,
             enforcer_id=cfg.enforcer_id,
-            enforcer_label="Test Enforcer Python",
+            enforcer_label="Test Enforcer CLI",
             workspace_name=cfg.workspace_name,
             gateway_url=cfg.gateway_url,
             x25519_public_key=x25519kp.public_key,
@@ -302,12 +319,13 @@ async def do_pair():
         claim_res = await gw_client.claim_pairing(claim_req)
         pairing_nonce = claim_res.pairing_nonce
         console.print(f"[green]✓ Code claimed. Nonce: {pairing_nonce}[/green]")
+        console.print("[dim]Waiting for the approver to complete pairing in the mobile app...[/dim]")
     else:
         from airlock_gateway.models import PairingInitiateRequest
         req = PairingInitiateRequest(
             device_id=cfg.device_id,
             enforcer_id=cfg.enforcer_id,
-            enforcer_label="Test Enforcer Python",
+            enforcer_label="Test Enforcer CLI",
             workspace_name=cfg.workspace_name,
             x25519_public_key=x25519kp.public_key,
         )
@@ -324,7 +342,7 @@ async def do_pair():
         ))
 
     # Poll for completion
-    with console.status("Waiting for the approver to complete pairing in the mobile app...") as status:
+    with console.status("Waiting for pairing approval...") as status:
         for i in range(60):  # 5 min max
             await asyncio.sleep(5)
             ps = await gw_client.get_pairing_status(pairing_nonce)
@@ -346,7 +364,7 @@ async def do_pair():
                     except Exception as ex:
                         console.print(f"[yellow]⚠ Failed to derive encryption key: {ex}[/yellow]")
 
-                if not getattr(cfg, "encryption_key", ""):
+                if not cfg.encryption_key:
                     console.print("[yellow]⚠ No approver X25519 key received — encryption will use random test keys[/yellow]")
 
                 save_config()
@@ -357,7 +375,7 @@ async def do_pair():
                 console.print(f"[red]Pairing {state}[/red]")
                 return
 
-    console.print("[red]Pairing timed out.[/red]")
+    console.print("[red]Pairing timed out or was rejected.[/red]")
 
 
 # ── Submit Artifact ─────────────────────────────────────────────────
@@ -366,43 +384,40 @@ async def do_submit():
     await ensure_fresh_token()
 
     import json
-    from airlock_gateway.crypto_helpers import aes_gcm_encrypt, sha256_hex, to_base64url
-    from airlock_gateway.canonical_json import canonicalize
-    from airlock_gateway.models import ArtifactSubmitRequest, EncryptedPayload as EPModel
+    from airlock_gateway.crypto_helpers import to_base64url
+    from airlock_gateway.models import EncryptedArtifactRequest
 
-    # Build plaintext payload
-    plaintext = json.dumps({
-        "requestLabel": "Test approval request from Python enforcer",
-        "command": "python -m pytest",
-        "workspaceName": cfg.workspace_name,
-        "enforcerId": cfg.enforcer_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+    request_label = "Test approval request from Python enforcer"
+    plaintext = json.dumps(
+        {
+            "requestLabel": request_label,
+            "command": "dotnet test --filter Category=Integration",
+            "workspaceName": cfg.workspace_name,
+            "enforcerId": cfg.enforcer_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    )
 
-    # Use stored encryption key or generate a test key
-    enc_key = getattr(cfg, "encryption_key", "")
+    enc_key = cfg.encryption_key or ""
     if not enc_key:
         enc_key = to_base64url(secrets.token_bytes(32))
         console.print("[yellow]⚠ No encryption key from pairing — using random test key[/yellow]")
 
-    # Canonicalize and hash
-    canonical = canonicalize(plaintext)
-    artifact_hash = sha256_hex(canonical)
-
-    # Encrypt with AES-256-GCM
-    encrypted = aes_gcm_encrypt(enc_key, canonical)
-
-    req = ArtifactSubmitRequest(
+    req = EncryptedArtifactRequest(
         enforcer_id=cfg.enforcer_id,
         artifact_type="command-approval",
-        artifact_hash=artifact_hash,
-        ciphertext=EPModel(alg=encrypted.alg, data=encrypted.data, nonce=encrypted.nonce, tag=encrypted.tag),
-        metadata={"routingToken": cfg.routing_token, "workspaceName": cfg.workspace_name, "requestLabel": "Test approval request from Python enforcer"},
+        plaintext_payload=plaintext,
+        encryption_key_base64url=enc_key,
+        metadata={
+            "routingToken": cfg.routing_token,
+            "workspaceName": cfg.workspace_name,
+            "requestLabel": request_label,
+        },
     )
 
     console.print("[dim]Submitting encrypted artifact...[/dim]")
-    submitted_id = await gw_client.submit_artifact(req)
-    last_request_id = submitted_id or req.request_id
+    submitted_id = await gw_client.encrypt_and_submit_artifact(req)
+    last_request_id = submitted_id
     console.print(f"[green]✓ Submitted: {last_request_id} (AES-256-GCM encrypted)[/green]")
 
     # Long-poll for decision
@@ -502,7 +517,8 @@ async def try_restore_session():
             await check_consent()
         except AirlockGatewayError as ex:
             if ex.status_code == 401:
-                console.print("[yellow]⚠ PAT has been revoked or expired. Please set a new PAT.[/yellow]")
+                console.print("[red]✗ PAT is invalid or revoked.[/red]")
+                console.print("[yellow]Please set a new PAT or sign in with OAuth.[/yellow]")
                 cfg.pat = ""
                 gw_client.set_pat(None)
                 save_config()
@@ -550,10 +566,10 @@ async def try_restore_session():
 def reapply_auth():
     if cfg.pat:
         gw_client.set_pat(cfg.pat)
-        console.print("[green]✓ PAT re-applied after reconfigure[/green]")
+        console.print("[green]✓ PAT re-applied[/green]")
     elif cfg.access_token:
         gw_client.set_bearer_token(cfg.access_token)
-        console.print("[green]✓ Bearer token re-applied after reconfigure[/green]")
+        console.print("[green]✓ Bearer token re-applied[/green]")
 
 
 # ── Token Refresh ───────────────────────────────────────────────────
@@ -575,19 +591,24 @@ def start_heartbeat():
 
     async def _heartbeat_loop():
         from airlock_gateway.models import PresenceHeartbeatRequest
+        console.print("[dim]❤ Heartbeat started (every 10s)[/dim]")
         try:
             while True:
                 try:
                     await gw_client.send_heartbeat(PresenceHeartbeatRequest(
                         enforcer_id=cfg.enforcer_id,
-                        enforcer_label="Test Enforcer Python",
+                        enforcer_label="Test Enforcer CLI",
                         workspace_name=cfg.workspace_name,
                     ))
-                except Exception:
-                    pass  # Silent — don't interfere with TUI
-                await asyncio.sleep(10)
+                except Exception as ex:
+                    console.print(f"[dim yellow]❤ Heartbeat failed: {ex}[/dim yellow]")
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError:
+                    break
         except asyncio.CancelledError:
             pass
+        console.print("[dim]❤ Heartbeat stopped[/dim]")
 
     heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
@@ -601,6 +622,7 @@ def stop_heartbeat():
 
 # ── Setup Wizard ────────────────────────────────────────────────────
 async def run_setup_wizard():
+    stop_heartbeat()
     console.rule("[yellow]Setup[/yellow]")
 
     cfg.gateway_url = await questionary.text("Gateway URL:", default=cfg.gateway_url).ask_async() or cfg.gateway_url
@@ -650,26 +672,26 @@ async def main():
             return
 
         try:
-            if choice == "▸ Set PAT (recommended)":
+            if choice == "> Set PAT (recommended)":
                 await do_set_pat()
-            elif choice == "▸ Sign In (OAuth)":
+            elif choice == "> Sign In (OAuth)":
                 await do_sign_in()
-            elif choice == "▸ Pair Device":
+            elif choice == "> Pair Device":
                 await do_pair()
-            elif choice == "▸ Submit Artifact":
+            elif choice == "> Submit Artifact":
                 await do_submit()
-            elif choice == "▸ Withdraw":
+            elif choice == "> Withdraw":
                 await do_withdraw()
-            elif choice == "▸ Unpair":
+            elif choice == "> Unpair":
                 await do_unpair()
-            elif choice == "▸ Sign Out":
+            elif choice == "> Sign Out":
                 await do_sign_out()
-            elif choice == "▸ Reconfigure":
+            elif choice == "> Reconfigure":
                 await run_setup_wizard()
                 discover_gateway()
                 init_clients()
                 reapply_auth()
-            elif choice == "✕ Exit":
+            elif choice == "x Exit":
                 stop_heartbeat()
                 console.print("[dim]Goodbye![/dim]")
                 return

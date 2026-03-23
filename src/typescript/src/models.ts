@@ -50,6 +50,17 @@ export interface ArtifactSubmitRequest {
     requestId?: string;
 }
 
+/** Plaintext JSON → JCS + SHA-256 + AES-256-GCM → submit (see `encryptAndSubmitArtifact`). */
+export interface EncryptedArtifactRequest {
+    enforcerId: string;
+    artifactType?: string;
+    plaintextPayload: string;
+    encryptionKeyBase64Url: string;
+    expiresAt?: string;
+    metadata?: Record<string, string>;
+    requestId?: string;
+}
+
 // ── Decision ────────────────────────────────────────────────────
 
 export interface DecisionDeliverBody {

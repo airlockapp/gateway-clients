@@ -64,6 +64,20 @@ class ArtifactSubmitRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class EncryptedArtifactRequest(BaseModel):
+    """Plaintext JSON to encrypt (JCS + SHA-256 + AES-256-GCM) then submit."""
+
+    enforcer_id: str = Field(..., alias="enforcerId")
+    artifact_type: str = Field("command-approval", alias="artifactType")
+    plaintext_payload: str = Field(..., alias="plaintextPayload")
+    encryption_key_base64url: str = Field(..., alias="encryptionKeyBase64Url")
+    expires_at: Optional[datetime] = Field(None, alias="expiresAt")
+    metadata: Optional[Dict[str, str]] = None
+    request_id: Optional[str] = Field(None, alias="requestId")
+
+    model_config = {"populate_by_name": True}
+
+
 # ── Decision ─────────────────────────────────────────────────────
 
 

@@ -253,7 +253,7 @@ cd src/dotnet
 dotnet run --project Airlock.Gateway.Sdk.TestEnforcer
 ```
 
-On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-dotnet.json` and restored on subsequent runs.
+On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer.json` and restored on subsequent runs.
 
 ## Requirements
 

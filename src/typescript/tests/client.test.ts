@@ -67,6 +67,24 @@ describe("submitArtifact", () => {
         expect(requestId).toMatch(/^req-/);
     });
 
+    it("encryptAndSubmitArtifact canonicalizes and posts expected hash", async () => {
+        const { client, mock } = createClient();
+        mock.enqueue(202, {});
+        const key = Buffer.alloc(32, 7).toString("base64url");
+        const requestId = await client.encryptAndSubmitArtifact({
+            enforcerId: "e1",
+            plaintextPayload: JSON.stringify({ value: 42, action: "test" }),
+            encryptionKeyBase64Url: key,
+            requestId: "req-enc",
+        });
+        expect(requestId).toBe("req-enc");
+        const body = mock.requests[0].body;
+        expect(body).toContain(
+            "d3c2d7effb479ffc5085aad2144df886a452a4863396060f4e0ea29a8409d0fd",
+        );
+        expect(body).toContain("AES-256-GCM");
+    });
+
     it("throws on no approver (422)", async () => {
         const { client, mock } = createClient();
         mock.enqueue(422, {
