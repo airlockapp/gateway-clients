@@ -118,6 +118,23 @@ export interface PairingRevokeResponse {
     enforcerId?: string;
 }
 
+// ── Pairing Claim (Pre-generated) ──────────────────────────────
+
+export interface PairingClaimRequest {
+    pairingCode: string;
+    deviceId: string;
+    enforcerId: string;
+    enforcerLabel: string;
+    workspaceName: string;
+    gatewayUrl?: string;
+    x25519PublicKey?: string;
+}
+
+export interface PairingClaimResponse {
+    pairingNonce: string;
+    expiresAt: string;
+}
+
 // ── Presence ────────────────────────────────────────────────────
 
 export interface PresenceHeartbeatRequest {

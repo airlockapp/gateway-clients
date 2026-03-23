@@ -159,6 +159,29 @@ class PairingRevokeResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class PairingClaimRequest(BaseModel):
+    """Request for POST /v1/pairing/claim — claim a pre-generated pairing code."""
+
+    pairing_code: str = Field(..., alias="pairingCode")
+    device_id: str = Field(..., alias="deviceId")
+    enforcer_id: str = Field(..., alias="enforcerId")
+    enforcer_label: str = Field(..., alias="enforcerLabel")
+    workspace_name: str = Field(..., alias="workspaceName")
+    gateway_url: Optional[str] = Field(None, alias="gatewayUrl")
+    x25519_public_key: Optional[str] = Field(None, alias="x25519PublicKey")
+
+    model_config = {"populate_by_name": True}
+
+
+class PairingClaimResponse(BaseModel):
+    """Response from POST /v1/pairing/claim."""
+
+    pairing_nonce: str = Field("", alias="pairingNonce")
+    expires_at: Optional[datetime] = Field(None, alias="expiresAt")
+
+    model_config = {"populate_by_name": True}
+
+
 # ── Presence ─────────────────────────────────────────────────────
 
 

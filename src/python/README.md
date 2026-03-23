@@ -60,6 +60,18 @@ async with AirlockGatewayClient(
     echo = await client.echo()
 ```
 
+### With Personal Access Token (PAT)
+
+PAT is the recommended authentication for user-scoped operations. It replaces the Bearer token and is sent via the `X-PAT` header:
+
+```python
+# After obtaining a PAT from the mobile app (Settings → Access Tokens)
+client.set_pat("airlock_pat_...")
+
+# Clear PAT when no longer needed
+client.set_pat(None)
+```
+
 ### Dual Auth (set_bearer_token)
 
 After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
@@ -79,21 +91,79 @@ client.set_bearer_token(access_token)
 | **Web** | Auth Code + PKCE (RFC 7636) | `login_with_auth_code(on_browser_url, port)` or `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Browser-capable — can handle redirects and local callback |
 | **Mobile** | Auth Code + PKCE (RFC 7636) | `get_authorization_url(redirect_uri)` + `exchange_code(code, redirect_uri, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
 
+## Pairing
+
+### Standard Pairing (Enforcer-Initiated)
+
+```python
+from airlock_gateway import PairingInitiateRequest
+
+# 1. Initiate a pairing session
+resp = await client.initiate_pairing(PairingInitiateRequest(
+    enforcer_id="my-enforcer",
+    workspace_name="my-project",
+    x25519_public_key=my_public_key,
+))
+
+# 2. Display pairing code to user
+print(f"Pairing code: {resp.pairing_code}")
+
+# 3. Poll for approval from the mobile app
+status = await client.get_pairing_status(resp.nonce)
+# status.state == "Completed" → save status.routing_token
+```
+
+### Pre-Generated Code Pairing (Approver-Initiated)
+
+When the mobile app pre-generates a pairing code, the enforcer claims it:
+
+```python
+from airlock_gateway import PairingClaimRequest
+
+claim = await client.claim_pairing(PairingClaimRequest(
+    code="ABCD-1234",
+    enforcer_id="my-enforcer",
+    workspace_name="my-project",
+    x25519_public_key=my_public_key,
+))
+# claim.routing_token is ready to use
+```
+
+## Consent Check
+
+Enforcer apps must verify user consent before submitting artifacts:
+
+```python
+from airlock_gateway import AirlockGatewayError
+
+try:
+    status = await client.check_consent()
+    # status == "approved" — proceed normally
+except AirlockGatewayError as e:
+    if e.error_code == "app_consent_required":
+        print("User hasn't granted consent")
+    elif e.error_code == "app_consent_pending":
+        print("Consent request sent, waiting for approval")
+```
+
 ## API Reference
 
 | Method | Description |
 |--------|-------------|
 | `echo()` | Gateway discovery/health |
+| `set_pat(pat)` | Set Personal Access Token (X-PAT header) |
+| `set_bearer_token(token)` | Set Bearer token for user-scoped operations |
+| `check_consent()` | Check if user has consented to this enforcer app |
 | `submit_artifact(request)` | Submit artifact for approval |
 | `get_exchange_status(request_id)` | Get exchange status |
 | `wait_for_decision(request_id, timeout)` | Long-poll for decision |
 | `withdraw_exchange(request_id)` | Withdraw pending exchange |
 | `initiate_pairing(request)` | Start pairing session |
+| `claim_pairing(request)` | Claim a pre-generated pairing code |
 | `get_pairing_status(nonce)` | Poll pairing status |
 | `revoke_pairing(routing_token)` | Revoke a pairing |
 | `send_heartbeat(request)` | Presence heartbeat |
 | `get_effective_dnd_policies(enforcer_id, workspace_id, session_id=None)` | Fetch effective DND policies |
-| `check_consent()` | Check app consent status |
 
 ## Error Handling
 
@@ -115,19 +185,6 @@ except AirlockGatewayError as e:
         print(f"Error {e.status_code}: {e}")
 ```
 
-## Requirements
-
-- Python 3.9+
-- httpx >= 0.25.0
-- pydantic >= 2.0.0
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-pytest
-```
-
 ## Encryption
 
 The SDK includes `crypto_helpers` for **X25519 ECDH key exchange** and **AES-256-GCM** encryption/decryption using [cryptography](https://cryptography.io/):
@@ -136,11 +193,11 @@ The SDK includes `crypto_helpers` for **X25519 ECDH key exchange** and **AES-256
 - `derive_shared_key(my_private, peer_public)` — derives a shared AES-256 key via ECDH + HKDF-SHA256 (info: `HARP-E2E-AES256GCM`)
 - `aes_gcm_encrypt(key, plaintext)` / `aes_gcm_decrypt(key, payload)` — AES-256-GCM with detached nonce and tag
 
-During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.response_json`.
+During pairing, the enforcer generates an X25519 keypair, sends the public key in the pairing request, and derives the shared encryption key from the approver's public key returned in the pairing response.
 
 ## Test Enforcer CLI
 
-A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, PAT configuration, consent check, workspace pairing (both standard and pre-generated code), background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
 
 ### Prerequisites
 
@@ -166,6 +223,19 @@ python test_enforcer.py
 ```
 
 On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-python.json` and restored on subsequent runs.
+
+## Requirements
+
+- Python 3.9+
+- httpx >= 0.25.0
+- pydantic >= 2.0.0
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
 
 ## License
 

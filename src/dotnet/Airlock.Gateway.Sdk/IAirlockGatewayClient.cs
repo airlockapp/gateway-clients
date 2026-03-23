@@ -45,6 +45,9 @@ namespace Airlock.Gateway.Sdk
         /// <summary>POST /v1/pairing/revoke — Revoke a pairing.</summary>
         Task<PairingRevokeResponse> RevokePairingAsync(string routingToken, CancellationToken ct = default);
 
+        /// <summary>POST /v1/pairing/claim — Claim a pre-generated pairing code.</summary>
+        Task<PairingClaimResponse> ClaimPairingAsync(PairingClaimRequest request, CancellationToken ct = default);
+
         // ── Presence ────────────────────────────────────────────────
 
         /// <summary>POST /v1/presence/heartbeat — Send a presence heartbeat.</summary>

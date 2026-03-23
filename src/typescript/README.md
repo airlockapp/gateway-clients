@@ -31,6 +31,18 @@ const client = new AirlockGatewayClient({
 });
 ```
 
+### With Personal Access Token (PAT)
+
+PAT is the recommended authentication for user-scoped operations. It replaces the Bearer token and is sent via the `X-PAT` header:
+
+```typescript
+// After obtaining a PAT from the mobile app (Settings → Access Tokens)
+client.setPat("airlock_pat_...");
+
+// Clear PAT when no longer needed
+client.setPat(undefined);
+```
+
 ### Dual Auth (setBearerToken)
 
 After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
@@ -50,7 +62,62 @@ client.setBearerToken(accessToken);
 | **Web** | Auth Code + PKCE (RFC 7636) | `loginWithAuthCode(onBrowserUrl, port?)` or `getAuthorizationUrl(redirectUri)` + `exchangeCode(code, redirectUri, verifier)` | Browser-capable — can handle redirects and local callback |
 | **Mobile** | Auth Code + PKCE (RFC 7636) | `getAuthorizationUrl(redirectUri)` + `exchangeCode(code, redirectUri, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
 
-### Submit and Poll
+## Pairing
+
+### Standard Pairing (Enforcer-Initiated)
+
+```typescript
+// 1. Initiate a pairing session
+const resp = await client.initiatePairing({
+    enforcerId: "my-enforcer",
+    workspaceName: "my-project",
+    x25519PublicKey: myPublicKey,
+});
+
+// 2. Display pairing code to user
+console.log(`Pairing code: ${resp.pairingCode}`);
+
+// 3. Poll for approval from the mobile app
+const status = await client.getPairingStatus(resp.nonce);
+// status.state === "Completed" → save status.routingToken
+```
+
+### Pre-Generated Code Pairing (Approver-Initiated)
+
+When the mobile app pre-generates a pairing code, the enforcer claims it:
+
+```typescript
+const claim = await client.claimPairing({
+    code: "ABCD-1234",
+    enforcerId: "my-enforcer",
+    workspaceName: "my-project",
+    x25519PublicKey: myPublicKey,
+});
+// claim.routingToken is ready to use
+```
+
+## Consent Check
+
+Enforcer apps must verify user consent before submitting artifacts:
+
+```typescript
+import { AirlockGatewayError } from "@airlock/gateway-sdk";
+
+try {
+    const status = await client.checkConsent();
+    // status === "approved" — proceed normally
+} catch (e) {
+    if (e instanceof AirlockGatewayError) {
+        if (e.errorCode === "app_consent_required") {
+            // User hasn't granted consent
+        } else if (e.errorCode === "app_consent_pending") {
+            // Consent request sent, waiting for approval
+        }
+    }
+}
+```
+
+## Submit and Poll
 
 ```typescript
 // Submit an artifact for approval
@@ -78,16 +145,19 @@ if (decision?.body?.decision === "approve") {
 | Method | Description |
 |--------|-------------|
 | `echo()` | Gateway discovery/health |
+| `setPat(pat)` | Set Personal Access Token (X-PAT header) |
+| `setBearerToken(token)` | Set Bearer token for user-scoped operations |
+| `checkConsent()` | Check if user has consented to this enforcer app |
 | `submitArtifact(request)` | Submit artifact for approval |
 | `getExchangeStatus(requestId)` | Get exchange status |
 | `waitForDecision(requestId, timeout)` | Long-poll for decision |
 | `withdrawExchange(requestId)` | Withdraw pending exchange |
 | `initiatePairing(request)` | Start pairing session |
+| `claimPairing(request)` | Claim a pre-generated pairing code |
 | `getPairingStatus(nonce)` | Poll pairing status |
 | `revokePairing(routingToken)` | Revoke a pairing |
 | `sendHeartbeat(request)` | Presence heartbeat |
 | `getEffectiveDndPolicies(enforcerId, workspaceId, sessionId?)` | Fetch effective DND policies |
-| `checkConsent()` | Check app consent status |
 
 ## Error Handling
 
@@ -119,19 +189,6 @@ const client = new AirlockGatewayClient({
 });
 ```
 
-## Requirements
-
-- Node.js 18+ (native `fetch`) or modern browser
-- Zero runtime dependencies
-
-## Development
-
-```bash
-npm install
-npm run build
-npm test
-```
-
 ## Encryption
 
 The test enforcer uses **X25519 ECDH key exchange** via [libsodium-wrappers-sumo](https://github.com/nickovs/libsodium-wrappers-sumo):
@@ -140,11 +197,11 @@ The test enforcer uses **X25519 ECDH key exchange** via [libsodium-wrappers-sumo
 - `sodium.crypto_scalarmult(privateKey, peerPublicKey)` — X25519 ECDH scalar multiplication
 - `crypto.hkdfSync('sha256', sharedSecret, ...)` — HKDF-SHA256 key derivation (info: `HARP-E2E-AES256GCM`)
 
-During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.responseJson`.
+During pairing, the enforcer generates an X25519 keypair, sends the public key in the pairing request, and derives the shared encryption key from the approver's public key returned in the pairing response.
 
 ## Test Enforcer CLI
 
-A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, PAT configuration, consent check, workspace pairing (both standard and pre-generated code), background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
 
 ### Prerequisites
 
@@ -166,6 +223,19 @@ npm start
 ```
 
 On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-typescript.json` and restored on subsequent runs.
+
+## Requirements
+
+- Node.js 18+ (native `fetch`) or modern browser
+- Zero runtime dependencies
+
+## Development
+
+```bash
+npm install
+npm run build
+npm test
+```
 
 ## License
 

@@ -28,16 +28,24 @@ All SDKs cover the **enforcer-side** endpoints:
 | `POST /v1/exchanges/{requestId}/withdraw` | Withdraw a pending exchange |
 | `POST /v1/pairing/initiate` | Start a new pairing session |
 | `GET /v1/pairing/{nonce}/status` | Poll pairing status |
+| `POST /v1/pairing/claim` | Claim a pre-generated pairing code |
 | `POST /v1/pairing/revoke` | Revoke a pairing |
 | `POST /v1/presence/heartbeat` | Send a presence heartbeat |
 | `GET /v1/policy/dnd/effective` | Fetch effective DND policies |
 
 ## Authentication
 
-The SDKs support two authentication modes:
+The SDKs support three authentication modes:
+
+### Personal Access Token (PAT)
+Pass a Personal Access Token (PAT) generated via the Airlock dashboard. This is the recommended identity mechanism for CLI and script-based enforcers. It is sent as the `X-PAT` HTTP header.
+
+```python
+client = AirlockGatewayClient("https://igw.airlocks.io")
+client.set_pat("airpat_1234567890abcdef")
+```
 
 ### Bearer Token
-
 Pass a JWT token issued by the Airlock Keycloak identity provider:
 
 ```python
@@ -124,20 +132,20 @@ A unified PowerShell script handles building, testing, packaging, and publishing
 
 ```powershell
 # Build and package all SDKs
-.\gateway_sdk\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0
+.\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0
 
 # Build a single SDK
-.\gateway_sdk\scripts\package-sdks.ps1 -Sdk dotnet -Version 0.1.0
+.\scripts\package-sdks.ps1 -Sdk dotnet -Version 0.1.0
 
 # Build and push to registries
-.\gateway_sdk\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0 -Push `
+.\scripts\package-sdks.ps1 -Sdk all -Version 0.1.0 -Push `
     -NuGetApiKey "your-key" `
     -PyPiToken "your-token" `
     -NpmToken "your-token" `
     -CratesToken "your-token"
 ```
 
-Output packages are placed in `gateway_sdk/dist/{language}/`.
+Output packages are placed in `dist/{language}/`.
 
 | SDK | Registry | Command |
 |-----|----------|---------|

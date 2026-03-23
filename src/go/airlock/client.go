@@ -15,6 +15,7 @@ import (
 type Client struct {
 	baseURL      string
 	token        string
+	pat          string
 	clientID     string
 	clientSecret string
 	httpClient   *http.Client
@@ -54,6 +55,13 @@ func (c *Client) WithHTTPClient(hc *http.Client) *Client {
 // SetBearerToken sets (or clears) the user Bearer token for dual-auth scenarios.
 func (c *Client) SetBearerToken(token string) *Client {
 	c.token = token
+	return c
+}
+
+// SetPat sets (or clears) the Personal Access Token (PAT).
+// PAT is the recommended user identity — sends X-PAT header.
+func (c *Client) SetPat(pat string) *Client {
+	c.pat = pat
 	return c
 }
 
@@ -186,6 +194,15 @@ func (c *Client) RevokePairing(routingToken string) (*PairingRevokeResponse, err
 	return &resp, nil
 }
 
+// ClaimPairing calls POST /v1/pairing/claim to claim a pre-generated pairing code.
+func (c *Client) ClaimPairing(req PairingClaimRequest) (*PairingClaimResponse, error) {
+	var resp PairingClaimResponse
+	if err := c.doPost("/v1/pairing/claim", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ── Presence ────────────────────────────────────────────────────
 
 // SendHeartbeat calls POST /v1/presence/heartbeat.
@@ -278,6 +295,9 @@ func (c *Client) rawRequest(method, path string, body io.Reader) (*http.Response
 		return nil, nil, err
 	}
 
+	if c.pat != "" {
+		req.Header.Set("X-PAT", c.pat)
+	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}

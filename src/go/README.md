@@ -1,6 +1,6 @@
 # airlock-gateway-sdk-go
 
-A Go client SDK for the Airlock Integrations Gateway API. Uses the standard library only — no external dependencies.
+A Go client SDK for the Airlock Integrations Gateway API.
 
 ## Installation
 
@@ -62,6 +62,18 @@ client := airlock.NewClientWithCredentials(
 )
 ```
 
+### With Personal Access Token (PAT)
+
+PAT is the recommended authentication for user-scoped operations. It replaces the Bearer token and is sent via the `X-PAT` header:
+
+```go
+// After obtaining a PAT from the mobile app (Settings → Access Tokens)
+client.SetPat("airlock_pat_...")
+
+// Clear PAT when no longer needed
+client.SetPat("")
+```
+
 ### Dual Auth (SetBearerToken)
 
 After creating a client with credentials, set a user's Bearer token to enable user-scoped operations:
@@ -81,21 +93,74 @@ client.SetBearerToken(accessToken)
 | **Web** | Auth Code + PKCE (RFC 7636) | `LoginWithAuthCode(ctx, onBrowserURL, port)` or `GetAuthorizationURL(ctx, redirectURI)` + `ExchangeCode(ctx, code, redirectURI, verifier)` | Browser-capable — can handle redirects and local callback |
 | **Mobile** | Auth Code + PKCE (RFC 7636) | `GetAuthorizationURL(ctx, redirectURI)` + `ExchangeCode(ctx, code, redirectURI, verifier)` | Uses system browser + deep-link callback (manages redirect externally) |
 
+## Pairing
+
+### Standard Pairing (Enforcer-Initiated)
+
+```go
+// 1. Initiate a pairing session
+resp, err := client.InitiatePairing(airlock.PairingInitiateRequest{
+    EnforcerID:    "my-enforcer",
+    WorkspaceName: "my-project",
+    X25519PublicKey: myPublicKey,
+})
+
+// 2. Display pairing code to user
+fmt.Printf("Pairing code: %s\n", resp.PairingCode)
+
+// 3. Poll for approval from the mobile app
+status, err := client.GetPairingStatus(resp.Nonce)
+// status.State == "Completed" → save status.RoutingToken
+```
+
+### Pre-Generated Code Pairing (Approver-Initiated)
+
+When the mobile app pre-generates a pairing code, the enforcer claims it:
+
+```go
+claim, err := client.ClaimPairing(airlock.PairingClaimRequest{
+    Code:            "ABCD-1234",
+    EnforcerID:      "my-enforcer",
+    WorkspaceName:   "my-project",
+    X25519PublicKey:  myPublicKey,
+})
+// claim.RoutingToken is ready to use
+```
+
+## Consent Check
+
+Enforcer apps must verify user consent before submitting artifacts:
+
+```go
+status, err := client.CheckConsent()
+if gwErr, ok := err.(*airlock.GatewayError); ok {
+    if gwErr.ErrorCode == "app_consent_required" {
+        // User hasn't granted consent
+    } else if gwErr.ErrorCode == "app_consent_pending" {
+        // Consent request sent, waiting for approval
+    }
+}
+// status == "approved" — proceed normally
+```
+
 ## API Reference
 
 | Method | Description |
 |--------|-------------|
 | `Echo()` | Gateway discovery/health |
+| `SetPat(pat)` | Set Personal Access Token (X-PAT header) |
+| `SetBearerToken(token)` | Set Bearer token for user-scoped operations |
+| `CheckConsent()` | Check if user has consented to this enforcer app |
 | `SubmitArtifact(req)` | Submit artifact for approval |
 | `GetExchangeStatus(requestID)` | Get exchange status |
 | `WaitForDecision(requestID, timeout)` | Long-poll for decision |
 | `WithdrawExchange(requestID)` | Withdraw pending exchange |
 | `InitiatePairing(req)` | Start pairing session |
+| `ClaimPairing(req)` | Claim a pre-generated pairing code |
 | `GetPairingStatus(nonce)` | Poll pairing status |
 | `RevokePairing(routingToken)` | Revoke a pairing |
 | `SendHeartbeat(req)` | Presence heartbeat |
 | `GetEffectiveDndPolicies(enforcerID, workspaceID, sessionID)` | Fetch effective DND policies |
-| `CheckConsent()` | Check app consent status |
 
 ## Error Handling
 
@@ -117,17 +182,6 @@ if gwErr, ok := err.(*airlock.GatewayError); ok {
 }
 ```
 
-## Requirements
-
-- Go 1.21+
-- Standard library only (no external dependencies)
-
-## Development
-
-```bash
-go test ./airlock/...
-```
-
 ## Encryption
 
 The SDK includes crypto helpers for **X25519 ECDH key exchange** and **AES-256-GCM** encryption/decryption:
@@ -136,11 +190,11 @@ The SDK includes crypto helpers for **X25519 ECDH key exchange** and **AES-256-G
 - `DeriveSharedKey(myPrivate, peerPublic)` — derives a shared AES-256 key via ECDH + HKDF-SHA256 (info: `HARP-E2E-AES256GCM`)
 - `AesGcmEncrypt(key, plaintext)` / `AesGcmDecrypt(key, payload)` — AES-256-GCM with detached nonce and tag
 
-During pairing, the test enforcer generates an X25519 keypair, sends the public key in the `PairingInitiateRequest`, and derives the shared encryption key from the approver's public key returned in `PairingStatusResponse.ResponseJSON`.
+During pairing, the enforcer generates an X25519 keypair, sends the public key in the pairing request, and derives the shared encryption key from the approver's public key returned in the pairing response.
 
 ## Test Enforcer CLI
 
-A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, consent check, workspace pairing, background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
+A fully interactive TUI application that demonstrates the complete enforcer lifecycle — setup wizard, Device Auth Grant sign-in, PAT configuration, consent check, workspace pairing (both standard and pre-generated code), background presence heartbeat, artifact submission with decision polling, withdrawal, unpairing, and sign-out.
 
 ### Prerequisites
 
@@ -158,6 +212,17 @@ go run ./cmd/test-enforcer
 ```
 
 On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-go.json` and restored on subsequent runs.
+
+## Requirements
+
+- Go 1.25+
+- golang.org/x/crypto (ECDH + HKDF)
+
+## Development
+
+```bash
+go test ./airlock/...
+```
 
 ## License
 

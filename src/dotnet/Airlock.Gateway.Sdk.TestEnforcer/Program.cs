@@ -22,6 +22,7 @@ class EnforcerConfig
     public string WorkspaceName { get; set; } = "default";
     public string RoutingToken { get; set; } = "";
     public string EncryptionKey { get; set; } = "";
+    public string Pat { get; set; } = "";
     public string AccessToken { get; set; } = "";
     public string RefreshToken { get; set; } = "";
     public DateTimeOffset TokenExpiresAt { get; set; }
@@ -97,13 +98,14 @@ class Program
             {
                 switch (choice)
                 {
-                    case "> Sign In": await DoSignIn(); break;
+                    case "> Set PAT (recommended)": await DoSetPat(); break;
+                    case "> Sign In (OAuth)": await DoSignIn(); break;
                     case "> Pair Device": await DoPair(); break;
                     case "> Submit Artifact": await DoSubmit(); break;
                     case "> Withdraw": await DoWithdraw(); break;
                     case "> Unpair": await DoUnpair(); break;
                     case "> Sign Out": await DoSignOut(); break;
-                    case "> Reconfigure": await RunSetupWizard(); DiscoverGateway(); InitClients(); break;
+                    case "> Reconfigure": await RunSetupWizard(); DiscoverGateway(); InitClients(); ReapplyAuth(); break;
                     case "x Exit":
                         _heartbeatCts?.Cancel();
                         AnsiConsole.MarkupLine("[dim]Goodbye![/]");
@@ -133,14 +135,14 @@ class Program
     // ── Menu ─────────────────────────────────────────────────────────────
     static string[] BuildMenuChoices()
     {
-        var isSignedIn = _authClient?.IsLoggedIn == true;
+        var isSignedIn = _authClient?.IsLoggedIn == true || !string.IsNullOrEmpty(_config.Pat);
         var isPaired = !string.IsNullOrEmpty(_config.RoutingToken);
 
         return isSignedIn
             ? isPaired
                 ? ["> Submit Artifact", "> Withdraw", "─────────", "> Unpair", "> Sign Out", "> Reconfigure", "x Exit"]
                 : ["> Pair Device", "─────────", "> Sign Out", "> Reconfigure", "x Exit"]
-            : ["> Sign In", "> Reconfigure", "x Exit"];
+            : ["> Set PAT (recommended)", "> Sign In (OAuth)", "> Reconfigure", "x Exit"];
     }
 
     // ── Status ───────────────────────────────────────────────────────────
@@ -156,8 +158,12 @@ class Program
         table.AddRow("Enforcer ID", Markup.Escape(_config.EnforcerId));
         table.AddRow("Workspace", Markup.Escape(_config.WorkspaceName));
 
-        var signedIn = _authClient?.IsLoggedIn == true;
-        table.AddRow("Auth", signedIn ? "[green]Signed in[/]" : "[dim]Not signed in[/]");
+        if (!string.IsNullOrEmpty(_config.Pat))
+            table.AddRow("Auth", $"[green]PAT (airpat_…)[/]");
+        else if (_authClient?.IsLoggedIn == true)
+            table.AddRow("Auth", "[green]OAuth signed in[/]");
+        else
+            table.AddRow("Auth", "[dim]Not authenticated[/]");
 
         if (!string.IsNullOrEmpty(_config.RoutingToken))
             table.AddRow("Paired", $"[green]{Markup.Escape(_config.RoutingToken[..Math.Min(16, _config.RoutingToken.Length)])}...[/]");
@@ -165,6 +171,29 @@ class Program
             table.AddRow("Paired", "[dim]Not paired[/]");
 
         AnsiConsole.Write(table);
+    }
+
+    // ── Set PAT (recommended flow) ─────────────────────────────────
+    static async Task DoSetPat()
+    {
+        var pat = AnsiConsole.Prompt(
+            new TextPrompt<string>("Paste your Personal Access Token (airpat_…):")
+                .Secret('*'));
+
+        if (!pat.StartsWith("airpat_", StringComparison.Ordinal))
+        {
+            AnsiConsole.MarkupLine("[red]Invalid PAT. Tokens must start with 'airpat_'.[/]");
+            return;
+        }
+
+        _config.Pat = pat;
+        _gwClient!.SetPat(pat);
+        await SaveConfig();
+
+        AnsiConsole.MarkupLine("[green]:check_mark: PAT set. You can now pair and submit artifacts without OAuth sign-in.[/]");
+
+        // Check consent
+        await CheckConsent();
     }
 
     // ── Sign In (Device Auth Grant) ─────────────────────────────────────
@@ -246,26 +275,62 @@ class Program
                 _config.DeviceId = $"dev-{Environment.MachineName.ToLowerInvariant()}";
         }
 
+        // Ask: new pairing or claim pre-generated code?
+        var pairingMode = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold]How do you want to pair?[/]")
+                .AddChoices("New pairing (generate code)", "Claim a pre-generated code"));
+
         // Generate X25519 keypair for ECDH key agreement
         var x25519KeyPair = Airlock.Gateway.Sdk.Crypto.CryptoHelpers.GenerateX25519KeyPair();
 
-        var req = new PairingInitiateRequest
+        string pairingNonce;
+
+        if (pairingMode.StartsWith("Claim"))
         {
-            DeviceId = _config.DeviceId,
-            EnforcerId = _config.EnforcerId,
-            EnforcerLabel = "Test Enforcer CLI",
-            WorkspaceName = _config.WorkspaceName,
-            X25519PublicKey = x25519KeyPair.publicKeyBase64Url,
-        };
+            // ── Claim pre-generated code ────────────────────────────
+            var code = AnsiConsole.Prompt(
+                new TextPrompt<string>("Enter the pre-generated pairing code:"));
 
-        var res = await _gwClient!.InitiatePairingAsync(req);
+            var claimReq = new PairingClaimRequest
+            {
+                PairingCode = code.Trim(),
+                DeviceId = _config.DeviceId,
+                EnforcerId = _config.EnforcerId,
+                EnforcerLabel = "Test Enforcer CLI",
+                WorkspaceName = _config.WorkspaceName,
+                GatewayUrl = _config.GatewayUrl,
+                X25519PublicKey = x25519KeyPair.publicKeyBase64Url,
+            };
 
-        AnsiConsole.Write(new Panel(
-            $"[bold]Pairing Code:[/] [cyan]{Markup.Escape(res.PairingCode ?? "N/A")}[/]\n" +
-            $"[bold]Nonce:[/] {Markup.Escape(res.PairingNonce ?? "N/A")}\n\n" +
-            "Enter this code in the Airlock mobile app to complete pairing.")
-            .Header("Pairing Initiated")
-            .BorderColor(Color.Yellow));
+            var claimRes = await _gwClient!.ClaimPairingAsync(claimReq);
+            pairingNonce = claimRes.PairingNonce;
+
+            AnsiConsole.MarkupLine($"[green]:check_mark: Code claimed. Nonce: {Markup.Escape(pairingNonce)}[/]");
+            AnsiConsole.MarkupLine("[dim]Waiting for the approver to complete pairing in the mobile app...[/]");
+        }
+        else
+        {
+            // ── New pairing (existing flow) ─────────────────────────
+            var req = new PairingInitiateRequest
+            {
+                DeviceId = _config.DeviceId,
+                EnforcerId = _config.EnforcerId,
+                EnforcerLabel = "Test Enforcer CLI",
+                WorkspaceName = _config.WorkspaceName,
+                X25519PublicKey = x25519KeyPair.publicKeyBase64Url,
+            };
+
+            var res = await _gwClient!.InitiatePairingAsync(req);
+            pairingNonce = res.PairingNonce ?? "";
+
+            AnsiConsole.Write(new Panel(
+                $"[bold]Pairing Code:[/] [cyan]{Markup.Escape(res.PairingCode ?? "N/A")}[/]\n" +
+                $"[bold]Nonce:[/] {Markup.Escape(pairingNonce)}\n\n" +
+                "Enter this code in the Airlock mobile app to complete pairing.")
+                .Header("Pairing Initiated")
+                .BorderColor(Color.Yellow));
+        }
 
         // Poll for completion
         var completedStatus = await AnsiConsole.Status()
@@ -276,7 +341,7 @@ class Program
                 for (int i = 0; i < 60; i++) // 5 minutes max
                 {
                     await Task.Delay(5000);
-                    var status = await _gwClient.GetPairingStatusAsync(res.PairingNonce!);
+                    var status = await _gwClient.GetPairingStatusAsync(pairingNonce);
                     var state = status.State?.ToLowerInvariant() ?? "";
 
                     ctx.Status($"Pairing status: [bold]{state}[/] ({i * 5}s)");
@@ -496,8 +561,10 @@ class Program
 
         _config.AccessToken = "";
         _config.RefreshToken = "";
+        _config.Pat = "";
         _config.TokenExpiresAt = default;
         _gwClient!.SetBearerToken(null);
+        _gwClient!.SetPat(null);
         _heartbeatCts?.Cancel();
         await SaveConfig();
 
@@ -507,6 +574,33 @@ class Program
     // ── Session Restore ─────────────────────────────────────────────────
     static async Task TryRestoreSession()
     {
+        // PAT takes priority — no need for token refresh
+        if (!string.IsNullOrEmpty(_config.Pat))
+        {
+            _gwClient!.SetPat(_config.Pat);
+            AnsiConsole.MarkupLine("[green]:check_mark: PAT restored[/]");
+
+            try
+            {
+                await CheckConsent();
+            }
+            catch (Exception ex) when (ex is AirlockGatewayException { StatusCode: System.Net.HttpStatusCode.Unauthorized }
+                                    || ex is HttpRequestException { StatusCode: System.Net.HttpStatusCode.Unauthorized })
+            {
+                // PAT was revoked or is invalid — clear it and let user re-authenticate
+                AnsiConsole.MarkupLine("[red]:cross_mark: PAT is invalid or revoked.[/]");
+                _config.Pat = "";
+                _gwClient.SetPat(null);
+                await SaveConfig();
+                AnsiConsole.MarkupLine("[yellow]Please set a new PAT or sign in with OAuth.[/]");
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_config.RoutingToken))
+                StartHeartbeat();
+            return;
+        }
+
         if (string.IsNullOrEmpty(_config.RefreshToken)) return;
 
         _authClient!.RestoreTokens(
@@ -691,6 +785,21 @@ class Program
         gwHttp.DefaultRequestHeaders.Add("X-Client-Id", _config.ClientId);
         gwHttp.DefaultRequestHeaders.Add("X-Client-Secret", _config.ClientSecret);
         _gwClient = new AirlockGatewayClient(gwHttp);
+    }
+
+    // ── Re-apply Auth After Reconfigure ─────────────────────────────────
+    static void ReapplyAuth()
+    {
+        if (!string.IsNullOrEmpty(_config.Pat))
+        {
+            _gwClient!.SetPat(_config.Pat);
+            AnsiConsole.MarkupLine("[green]:check_mark: PAT re-applied[/]");
+        }
+        else if (!string.IsNullOrEmpty(_config.AccessToken))
+        {
+            _gwClient!.SetBearerToken(_config.AccessToken);
+            AnsiConsole.MarkupLine("[green]:check_mark: Bearer token re-applied[/]");
+        }
     }
 
     // ── Config Persistence ──────────────────────────────────────────────

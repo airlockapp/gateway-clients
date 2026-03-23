@@ -96,4 +96,46 @@ namespace Airlock.Gateway.Sdk.Models
         [JsonPropertyName("enforcerId")]
         public string? EnforcerId { get; set; }
     }
+
+    // ── Pairing Claim (Pre-generated) ──────────────────────────────
+
+    /// <summary>
+    /// Request body for POST /v1/pairing/claim.
+    /// Claim a pre-generated pairing code created by the approver.
+    /// </summary>
+    public class PairingClaimRequest
+    {
+        [JsonPropertyName("pairingCode")]
+        public string PairingCode { get; set; } = "";
+
+        [JsonPropertyName("deviceId")]
+        public string DeviceId { get; set; } = "";
+
+        [JsonPropertyName("enforcerId")]
+        public string EnforcerId { get; set; } = "";
+
+        [JsonPropertyName("enforcerLabel")]
+        public string EnforcerLabel { get; set; } = "";
+
+        [JsonPropertyName("workspaceName")]
+        public string WorkspaceName { get; set; } = "";
+
+        [JsonPropertyName("gatewayUrl")]
+        public string? GatewayUrl { get; set; }
+
+        [JsonPropertyName("x25519PublicKey")]
+        public string? X25519PublicKey { get; set; }
+    }
+
+    /// <summary>
+    /// Response body from POST /v1/pairing/claim.
+    /// </summary>
+    public class PairingClaimResponse
+    {
+        [JsonPropertyName("pairingNonce")]
+        public string PairingNonce { get; set; } = "";
+
+        [JsonPropertyName("expiresAt")]
+        public DateTimeOffset ExpiresAt { get; set; }
+    }
 }

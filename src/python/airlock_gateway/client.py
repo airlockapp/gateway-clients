@@ -15,6 +15,8 @@ from airlock_gateway.models import (
     DndEffectiveResponse,
     EchoResponse,
     ExchangeStatusResponse,
+    PairingClaimRequest,
+    PairingClaimResponse,
     PairingInitiateRequest,
     PairingInitiateResponse,
     PairingRevokeResponse,
@@ -50,12 +52,15 @@ class AirlockGatewayClient:
         base_url: str,
         *,
         token: Optional[str] = None,
+        pat: Optional[str] = None,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
         timeout: float = 90.0,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> None:
         headers: Dict[str, str] = {}
+        if pat:
+            headers["X-PAT"] = pat
         if token:
             headers["Authorization"] = f"Bearer {token}"
         if client_id:
@@ -90,6 +95,16 @@ class AirlockGatewayClient:
             self._client.headers["Authorization"] = f"Bearer {token}"
         else:
             self._client.headers.pop("Authorization", None)
+
+    def set_pat(self, pat: Optional[str] = None) -> None:
+        """Set (or clear) the Personal Access Token (PAT).
+
+        PAT is the recommended user identity — sends X-PAT header.
+        """
+        if pat:
+            self._client.headers["X-PAT"] = pat
+        else:
+            self._client.headers.pop("X-PAT", None)
 
     # ── Discovery ────────────────────────────────────────────────
 
@@ -178,6 +193,16 @@ class AirlockGatewayClient:
             "/v1/pairing/revoke", {"routingToken": routing_token}
         )
         return PairingRevokeResponse.model_validate(data)
+
+    async def claim_pairing(
+        self, request: PairingClaimRequest
+    ) -> PairingClaimResponse:
+        """POST /v1/pairing/claim — Claim a pre-generated pairing code."""
+        data = await self._post_json(
+            "/v1/pairing/claim",
+            request.model_dump(by_alias=True, exclude_none=True),
+        )
+        return PairingClaimResponse.model_validate(data)
 
     # ── Presence ─────────────────────────────────────────────────
 

@@ -38,6 +38,7 @@ class Config:
         self.workspace_name = "default"
         self.device_id = ""
         self.routing_token = ""
+        self.pat = ""
         self.access_token = ""
         self.refresh_token = ""
         self.token_expires_at = 0.0
@@ -51,6 +52,7 @@ class Config:
             "workspaceName": self.workspace_name,
             "deviceId": self.device_id,
             "routingToken": self.routing_token,
+            "pat": self.pat,
             "accessToken": self.access_token,
             "refreshToken": self.refresh_token,
             "tokenExpiresAt": self.token_expires_at,
@@ -66,6 +68,7 @@ class Config:
         c.workspace_name = data.get("workspaceName", c.workspace_name)
         c.device_id = data.get("deviceId", c.device_id)
         c.routing_token = data.get("routingToken", c.routing_token)
+        c.pat = data.get("pat", c.pat)
         c.access_token = data.get("accessToken", c.access_token)
         c.refresh_token = data.get("refreshToken", c.refresh_token)
         c.token_expires_at = data.get("tokenExpiresAt", c.token_expires_at)
@@ -167,8 +170,13 @@ def print_status():
     table.add_row("Enforcer ID", cfg.enforcer_id)
     table.add_row("Workspace", cfg.workspace_name)
 
-    signed_in = auth_client and auth_client.is_logged_in
-    table.add_row("Auth", "[green]Signed in[/green]" if signed_in else "[dim]Not signed in[/dim]")
+    signed_in = (auth_client and auth_client.is_logged_in) or bool(cfg.pat)
+    if cfg.pat:
+        table.add_row("Auth", "[green]PAT (airpat_…)[/green]")
+    elif signed_in:
+        table.add_row("Auth", "[green]Signed in[/green]")
+    else:
+        table.add_row("Auth", "[dim]Not authenticated[/dim]")
 
     if cfg.routing_token:
         truncated = cfg.routing_token[:16] + "..." if len(cfg.routing_token) > 16 else cfg.routing_token
@@ -181,14 +189,29 @@ def print_status():
 
 # ── Menu ─────────────────────────────────────────────────────────────
 def build_menu_choices() -> list:
-    signed_in = auth_client and auth_client.is_logged_in
+    signed_in = (auth_client and auth_client.is_logged_in) or bool(cfg.pat)
     paired = bool(cfg.routing_token)
 
     if signed_in:
         if paired:
             return ["▸ Submit Artifact", "▸ Withdraw", "─────────", "▸ Unpair", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"]
         return ["▸ Pair Device", "─────────", "▸ Sign Out", "▸ Reconfigure", "✕ Exit"]
-    return ["▸ Sign In", "▸ Reconfigure", "✕ Exit"]
+    return ["▸ Set PAT (recommended)", "▸ Sign In (OAuth)", "▸ Reconfigure", "✕ Exit"]
+
+
+# ── Set PAT (recommended flow) ──────────────────────────────────────
+async def do_set_pat():
+    pat = await questionary.password("Paste your Personal Access Token (airpat_…):").ask_async()
+    if not pat:
+        return
+    if not pat.startswith("airpat_"):
+        console.print("[red]Invalid PAT. Tokens must start with 'airpat_'.[/red]")
+        return
+    cfg.pat = pat
+    gw_client.set_pat(pat)
+    save_config()
+    console.print("[green]✓ PAT set. You can now pair and submit artifacts without OAuth sign-in.[/green]")
+    await check_consent()
 
 
 # ── Sign In (Device Auth Grant) ─────────────────────────────────────
@@ -248,34 +271,63 @@ async def do_pair():
         default_id = f"dev-{socket.gethostname().lower()}"
         cfg.device_id = await questionary.text("Device ID:", default=default_id).ask_async() or default_id
 
+    # Choose: new pairing or claim pre-generated code
+    mode = await questionary.select(
+        "Pairing mode:",
+        choices=["Initiate new pairing", "Claim a pre-generated code"],
+    ).ask_async()
+    if not mode:
+        return
+
     # Generate X25519 keypair for ECDH key agreement
     from airlock_gateway.crypto_helpers import generate_x25519_keypair, derive_shared_key
     x25519kp = generate_x25519_keypair()
 
-    from airlock_gateway.models import PairingInitiateRequest
-    req = PairingInitiateRequest(
-        device_id=cfg.device_id,
-        enforcer_id=cfg.enforcer_id,
-        enforcer_label="Test Enforcer Python",
-        workspace_name=cfg.workspace_name,
-        x25519_public_key=x25519kp.public_key,
-    )
+    if mode == "Claim a pre-generated code":
+        from airlock_gateway.models import PairingClaimRequest as ClaimReq
+        code = await questionary.text("Enter the pre-generated pairing code:").ask_async()
+        if not code:
+            return
 
-    res = await gw_client.initiate_pairing(req)
+        claim_req = ClaimReq(
+            pairing_code=code,
+            device_id=cfg.device_id,
+            enforcer_id=cfg.enforcer_id,
+            enforcer_label="Test Enforcer Python",
+            workspace_name=cfg.workspace_name,
+            gateway_url=cfg.gateway_url,
+            x25519_public_key=x25519kp.public_key,
+        )
 
-    console.print(Panel(
-        f"[bold]Pairing Code:[/bold] [cyan]{res.pairing_code}[/cyan]\n"
-        f"[bold]Nonce:[/bold] {res.pairing_nonce}\n\n"
-        "Enter this code in the Airlock mobile app to complete pairing.",
-        title="Pairing Initiated",
-        border_style="yellow",
-    ))
+        claim_res = await gw_client.claim_pairing(claim_req)
+        pairing_nonce = claim_res.pairing_nonce
+        console.print(f"[green]✓ Code claimed. Nonce: {pairing_nonce}[/green]")
+    else:
+        from airlock_gateway.models import PairingInitiateRequest
+        req = PairingInitiateRequest(
+            device_id=cfg.device_id,
+            enforcer_id=cfg.enforcer_id,
+            enforcer_label="Test Enforcer Python",
+            workspace_name=cfg.workspace_name,
+            x25519_public_key=x25519kp.public_key,
+        )
+
+        res = await gw_client.initiate_pairing(req)
+        pairing_nonce = res.pairing_nonce
+
+        console.print(Panel(
+            f"[bold]Pairing Code:[/bold] [cyan]{res.pairing_code}[/cyan]\n"
+            f"[bold]Nonce:[/bold] {res.pairing_nonce}\n\n"
+            "Enter this code in the Airlock mobile app to complete pairing.",
+            title="Pairing Initiated",
+            border_style="yellow",
+        ))
 
     # Poll for completion
-    with console.status("Waiting for pairing approval...") as status:
+    with console.status("Waiting for the approver to complete pairing in the mobile app...") as status:
         for i in range(60):  # 5 min max
             await asyncio.sleep(5)
-            ps = await gw_client.get_pairing_status(res.pairing_nonce)
+            ps = await gw_client.get_pairing_status(pairing_nonce)
             state = (ps.state or "").lower()
             status.update(f"Pairing status: [bold]{state}[/bold] ({(i + 1) * 5}s)")
 
@@ -429,8 +481,10 @@ async def do_sign_out():
 
     cfg.access_token = ""
     cfg.refresh_token = ""
+    cfg.pat = ""
     cfg.token_expires_at = 0.0
     gw_client.set_bearer_token(None)
+    gw_client.set_pat(None)
     stop_heartbeat()
     save_config()
     console.print("[green]✓ Signed out.[/green]")
@@ -438,6 +492,29 @@ async def do_sign_out():
 
 # ── Session Restore ─────────────────────────────────────────────────
 async def try_restore_session():
+    # PAT takes priority — no need for token refresh
+    if cfg.pat:
+        gw_client.set_pat(cfg.pat)
+        console.print("[green]✓ PAT restored[/green]")
+
+        # Validate PAT is still active — handle revoked tokens gracefully
+        try:
+            await check_consent()
+        except AirlockGatewayError as ex:
+            if ex.status_code == 401:
+                console.print("[yellow]⚠ PAT has been revoked or expired. Please set a new PAT.[/yellow]")
+                cfg.pat = ""
+                gw_client.set_pat(None)
+                save_config()
+                return
+            raise
+        except Exception as ex:
+            console.print(f"[yellow]⚠ PAT validation failed: {ex}[/yellow]")
+
+        if cfg.routing_token:
+            start_heartbeat()
+        return
+
     if not cfg.refresh_token:
         return
 
@@ -467,6 +544,16 @@ async def try_restore_session():
         cfg.refresh_token = ""
         cfg.token_expires_at = 0.0
         save_config()
+
+
+# ── Re-apply Auth After Reconfigure ─────────────────────────────────
+def reapply_auth():
+    if cfg.pat:
+        gw_client.set_pat(cfg.pat)
+        console.print("[green]✓ PAT re-applied after reconfigure[/green]")
+    elif cfg.access_token:
+        gw_client.set_bearer_token(cfg.access_token)
+        console.print("[green]✓ Bearer token re-applied after reconfigure[/green]")
 
 
 # ── Token Refresh ───────────────────────────────────────────────────
@@ -563,7 +650,9 @@ async def main():
             return
 
         try:
-            if choice == "▸ Sign In":
+            if choice == "▸ Set PAT (recommended)":
+                await do_set_pat()
+            elif choice == "▸ Sign In (OAuth)":
                 await do_sign_in()
             elif choice == "▸ Pair Device":
                 await do_pair()
@@ -579,6 +668,7 @@ async def main():
                 await run_setup_wizard()
                 discover_gateway()
                 init_clients()
+                reapply_auth()
             elif choice == "✕ Exit":
                 stop_heartbeat()
                 console.print("[dim]Goodbye![/dim]")

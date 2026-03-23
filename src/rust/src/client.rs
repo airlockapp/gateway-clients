@@ -23,6 +23,7 @@ use uuid::Uuid;
 pub struct AirlockGatewayClient {
     base_url: String,
     token: Option<String>,
+    pat: Option<String>,
     client_id: Option<String>,
     client_secret: Option<String>,
     http: HttpClient,
@@ -34,6 +35,7 @@ impl AirlockGatewayClient {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: token.map(|t| t.into()),
+            pat: None,
             client_id: None,
             client_secret: None,
             http: HttpClient::new(),
@@ -49,6 +51,7 @@ impl AirlockGatewayClient {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: None,
+            pat: None,
             client_id: Some(client_id.into()),
             client_secret: Some(client_secret.into()),
             http: HttpClient::new(),
@@ -60,6 +63,12 @@ impl AirlockGatewayClient {
         self.token = token.map(|t| t.into());
     }
 
+    /// Set (or clear) the Personal Access Token (PAT).
+    /// PAT is the recommended user identity — sends X-PAT header.
+    pub fn set_pat(&mut self, pat: Option<impl Into<String>>) {
+        self.pat = pat.map(|t| t.into());
+    }
+
     /// Create a new client with a custom reqwest::Client (useful for testing).
     pub fn with_http_client(
         base_url: impl Into<String>,
@@ -69,6 +78,7 @@ impl AirlockGatewayClient {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: token.map(|t| t.into()),
+            pat: None,
             client_id: None,
             client_secret: None,
             http,
@@ -86,6 +96,7 @@ impl AirlockGatewayClient {
         Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             token: None,
+            pat: None,
             client_id: Some(client_id.into()),
             client_secret: Some(client_secret.into()),
             http,
@@ -211,6 +222,14 @@ impl AirlockGatewayClient {
             .await
     }
 
+    /// POST /v1/pairing/claim — Claim a pre-generated pairing code.
+    pub async fn claim_pairing(
+        &self,
+        request: &PairingClaimRequest,
+    ) -> Result<PairingClaimResponse, GatewayError> {
+        self.post_json("/v1/pairing/claim", request).await
+    }
+
     // ── Presence ────────────────────────────────────────────────
 
     /// POST /v1/presence/heartbeat — Send a presence heartbeat.
@@ -264,6 +283,9 @@ impl AirlockGatewayClient {
     // ── HTTP Helpers ────────────────────────────────────────────
 
     fn apply_auth(&self, mut req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(pat) = &self.pat {
+            req = req.header("X-PAT", pat);
+        }
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);
         }

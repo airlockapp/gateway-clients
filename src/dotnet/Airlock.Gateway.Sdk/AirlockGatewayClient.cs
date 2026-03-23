@@ -13,7 +13,7 @@ namespace Airlock.Gateway.Sdk
 {
     /// <summary>
     /// HTTP client for the Airlock Integrations Gateway API.
-    /// Supports both Bearer token and ClientId/ClientSecret authentication.
+    /// Supports PAT (recommended), Bearer token, and ClientId/ClientSecret authentication.
     /// </summary>
     public class AirlockGatewayClient : IAirlockGatewayClient
     {
@@ -87,6 +87,21 @@ namespace Airlock.Gateway.Sdk
             _http.DefaultRequestHeaders.Authorization = string.IsNullOrEmpty(bearerToken)
                 ? null
                 : new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+
+        /// <summary>
+        /// Sets (or clears) the Personal Access Token (PAT) on this client.
+        /// PAT is the recommended user identity mechanism — it replaces the Bearer token.
+        /// Sends the X-PAT header on all requests.
+        /// </summary>
+        public void SetPat(string? pat)
+        {
+            // Remove existing X-PAT header if present
+            _http.DefaultRequestHeaders.Remove("X-PAT");
+            if (!string.IsNullOrEmpty(pat))
+            {
+                _http.DefaultRequestHeaders.Add("X-PAT", pat);
+            }
         }
 
         // ── Discovery ───────────────────────────────────────────────
@@ -182,6 +197,14 @@ namespace Airlock.Gateway.Sdk
         {
             var request = new PairingRevokeRequest { RoutingToken = routingToken };
             return await PostAsync<PairingRevokeResponse>("/v1/pairing/revoke", request, ct)
+                .ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        public async Task<PairingClaimResponse> ClaimPairingAsync(
+            PairingClaimRequest request, CancellationToken ct = default)
+        {
+            return await PostAsync<PairingClaimResponse>("/v1/pairing/claim", request, ct)
                 .ConfigureAwait(false);
         }
 

@@ -147,6 +147,24 @@ type PairingRevokeResponse struct {
 	EnforcerID string `json:"enforcerId,omitempty"`
 }
 
+// PairingClaimRequest is the request body for POST /v1/pairing/claim.
+// Used to claim a pre-generated pairing code created by the approver.
+type PairingClaimRequest struct {
+	PairingCode   string `json:"pairingCode"`
+	DeviceID      string `json:"deviceId"`
+	EnforcerID    string `json:"enforcerId"`
+	EnforcerLabel string `json:"enforcerLabel"`
+	WorkspaceName string `json:"workspaceName"`
+	GatewayURL    string `json:"gatewayUrl,omitempty"`
+	X25519PubKey  string `json:"x25519PublicKey,omitempty"`
+}
+
+// PairingClaimResponse is the response from POST /v1/pairing/claim.
+type PairingClaimResponse struct {
+	PairingNonce string `json:"pairingNonce"`
+	ExpiresAt    string `json:"expiresAt,omitempty"`
+}
+
 // ── Presence ────────────────────────────────────────────────────
 
 // PresenceHeartbeatRequest is the request body for POST /v1/presence/heartbeat.

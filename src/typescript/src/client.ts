@@ -8,6 +8,8 @@ import type {
     EchoResponse,
     ExchangeStatusResponse,
     HarpEnvelope,
+    PairingClaimRequest,
+    PairingClaimResponse,
     PairingInitiateRequest,
     PairingInitiateResponse,
     PairingRevokeResponse,
@@ -18,8 +20,10 @@ import type {
 export interface AirlockGatewayClientOptions {
     /** Gateway base URL (e.g., "https://igw.airlocks.io"). */
     baseUrl: string;
-    /** Optional Bearer token for authentication. */
+    /** Optional Bearer token for authentication (fallback — use pat instead). */
     token?: string;
+    /** Personal Access Token (recommended — replaces Bearer token). */
+    pat?: string;
     /** Enforcer app Client ID (X-Client-Id header). */
     clientId?: string;
     /** Enforcer app Client Secret (X-Client-Secret header). */
@@ -37,6 +41,7 @@ export interface AirlockGatewayClientOptions {
 export class AirlockGatewayClient {
     private readonly baseUrl: string;
     private token?: string;
+    private pat?: string;
     private readonly clientId?: string;
     private readonly clientSecret?: string;
     private readonly fetchFn: typeof globalThis.fetch;
@@ -44,6 +49,7 @@ export class AirlockGatewayClient {
     constructor(options: AirlockGatewayClientOptions) {
         this.baseUrl = options.baseUrl.replace(/\/$/, "");
         this.token = options.token;
+        this.pat = options.pat;
         this.clientId = options.clientId;
         this.clientSecret = options.clientSecret;
         this.fetchFn = options.fetch ?? globalThis.fetch;
@@ -55,6 +61,15 @@ export class AirlockGatewayClient {
      */
     setBearerToken(token?: string): void {
         this.token = token;
+    }
+
+    /**
+     * Sets (or clears) the Personal Access Token (PAT) on this client.
+     * PAT is the recommended user identity — replaces Bearer token.
+     * Sends the X-PAT header on all requests.
+     */
+    setPat(pat?: string): void {
+        this.pat = pat;
     }
 
     // ── Discovery ───────────────────────────────────────────────
@@ -133,6 +148,11 @@ export class AirlockGatewayClient {
         return this.postJson<PairingRevokeResponse>("/v1/pairing/revoke", { routingToken });
     }
 
+    /** POST /v1/pairing/claim — Claim a pre-generated pairing code. */
+    async claimPairing(request: PairingClaimRequest): Promise<PairingClaimResponse> {
+        return this.postJson<PairingClaimResponse>("/v1/pairing/claim", request);
+    }
+
     // ── Presence ────────────────────────────────────────────────
 
     /** POST /v1/presence/heartbeat — Send a presence heartbeat. */
@@ -196,6 +216,9 @@ export class AirlockGatewayClient {
 
     private async rawFetch(method: string, path: string, payload?: unknown): Promise<Response> {
         const headers: Record<string, string> = {};
+        if (this.pat) {
+            headers["X-PAT"] = this.pat;
+        }
         if (this.token) {
             headers["Authorization"] = `Bearer ${this.token}`;
         }

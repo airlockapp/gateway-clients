@@ -25,6 +25,7 @@ interface Config {
     deviceId: string;
     routingToken: string;
     encryptionKey: string;
+    pat: string;
     accessToken: string;
     refreshToken: string;
     tokenExpiresAt: number;
@@ -41,6 +42,7 @@ let cfg: Config = {
     deviceId: '',
     routingToken: '',
     encryptionKey: '',
+    pat: '',
     accessToken: '',
     refreshToken: '',
     tokenExpiresAt: 0,
@@ -136,8 +138,14 @@ function printStatus(): void {
     console.log(`│ ${'Enforcer ID'.padEnd(14)} │ ${cfg.enforcerId.padEnd(28)} │`);
     console.log(`│ ${'Workspace'.padEnd(14)} │ ${cfg.workspaceName.padEnd(28)} │`);
 
-    const signedIn = authClient?.isLoggedIn;
-    console.log(`│ ${'Auth'.padEnd(14)} │ ${signedIn ? chalk.green('Signed in') : chalk.dim('Not signed in')}${' '.repeat(signedIn ? 19 : 14)} │`);
+    const signedIn = authClient?.isLoggedIn || Boolean(cfg.pat);
+    const authLabel = cfg.pat
+        ? chalk.green('PAT (airpat_…)')
+        : signedIn
+            ? chalk.green('Signed in')
+            : chalk.dim('Not authenticated');
+    const padLen = cfg.pat ? 13 : (signedIn ? 19 : 14);
+    console.log(`│ ${'Auth'.padEnd(14)} │ ${authLabel}${' '.repeat(padLen)} │`);
 
     if (cfg.routingToken) {
         const truncated = cfg.routingToken.length > 16 ? cfg.routingToken.slice(0, 16) + '...' : cfg.routingToken;
@@ -151,7 +159,7 @@ function printStatus(): void {
 
 // ── Menu ─────────────────────────────────────────────────────────────
 function buildMenuChoices(): { name: string; value: string }[] {
-    const signedIn = authClient?.isLoggedIn;
+    const signedIn = authClient?.isLoggedIn || Boolean(cfg.pat);
     const paired = Boolean(cfg.routingToken);
 
     if (signedIn) {
@@ -175,10 +183,26 @@ function buildMenuChoices(): { name: string; value: string }[] {
         ];
     }
     return [
-        { name: '▸ Sign In', value: 'signin' },
+        { name: '▸ Set PAT (recommended)', value: 'setpat' },
+        { name: '▸ Sign In (OAuth)', value: 'signin' },
         { name: '▸ Reconfigure', value: 'reconfig' },
         { name: '✕ Exit', value: 'exit' },
     ];
+}
+
+// ── Set PAT (recommended flow) ───────────────────────────────────────
+async function doSetPat(): Promise<void> {
+    const pat = await password({ message: 'Paste your Personal Access Token (airpat_…):', mask: '*' });
+    if (!pat) return;
+    if (!pat.startsWith('airpat_')) {
+        console.log(chalk.red('Invalid PAT. Tokens must start with \'airpat_\'.'));
+        return;
+    }
+    cfg.pat = pat;
+    gwClient.setPat(pat);
+    saveConfig();
+    console.log(chalk.green('✓ PAT set. You can now pair and submit artifacts without OAuth sign-in.'));
+    await checkConsent();
 }
 
 // ── Sign In (Device Auth Grant) ─────────────────────────────────────
@@ -238,30 +262,59 @@ async function doPair(): Promise<void> {
         cfg.deviceId = await input({ message: 'Device ID:', default: defaultId }) || defaultId;
     }
 
+    // Choose: new pairing or claim pre-generated code
+    const mode = await select({
+        message: 'Pairing mode',
+        choices: [
+            { name: 'Initiate new pairing', value: 'initiate' },
+            { name: 'Claim a pre-generated code', value: 'claim' },
+        ],
+    });
+
     // Generate X25519 keypair for ECDH key agreement (libsodium — matches harp-samples)
     const sodium = require('libsodium-wrappers-sumo');
     await sodium.ready;
     const x25519kp = sodium.crypto_box_keypair();
     const x25519PubB64Url = Buffer.from(x25519kp.publicKey).toString('base64url');
 
-    const res = await gwClient.initiatePairing({
-        deviceId: cfg.deviceId,
-        enforcerId: cfg.enforcerId,
-        enforcerLabel: 'Test Enforcer TypeScript',
-        workspaceName: cfg.workspaceName,
-        x25519PublicKey: x25519PubB64Url,
-    });
+    let pairingNonce: string;
 
-    console.log(chalk.yellow('┌─ Pairing Initiated ─────────────────────────────┐'));
-    console.log(`│ Pairing Code: ${chalk.cyan.bold(res.pairingCode)}`);
-    console.log(`│ Nonce:        ${res.pairingNonce}`);
-    console.log('│ Enter this code in the Airlock mobile app.');
-    console.log(chalk.yellow('└─────────────────────────────────────────────────┘'));
+    if (mode === 'claim') {
+        const code = await input({ message: 'Enter the pre-generated pairing code:' });
+        if (!code) return;
 
-    console.log(chalk.dim('Waiting for pairing approval...'));
+        const claimRes = await gwClient.claimPairing({
+            pairingCode: code,
+            deviceId: cfg.deviceId,
+            enforcerId: cfg.enforcerId,
+            enforcerLabel: 'Test Enforcer TypeScript',
+            workspaceName: cfg.workspaceName,
+            gatewayUrl: cfg.gatewayUrl,
+            x25519PublicKey: x25519PubB64Url,
+        });
+        pairingNonce = claimRes.pairingNonce;
+        console.log(chalk.green(`✓ Code claimed. Nonce: ${pairingNonce}`));
+    } else {
+        const res = await gwClient.initiatePairing({
+            deviceId: cfg.deviceId,
+            enforcerId: cfg.enforcerId,
+            enforcerLabel: 'Test Enforcer TypeScript',
+            workspaceName: cfg.workspaceName,
+            x25519PublicKey: x25519PubB64Url,
+        });
+        pairingNonce = res.pairingNonce;
+
+        console.log(chalk.yellow('┌─ Pairing Initiated ─────────────────────────────┐'));
+        console.log(`│ Pairing Code: ${chalk.cyan.bold(res.pairingCode)}`);
+        console.log(`│ Nonce:        ${res.pairingNonce}`);
+        console.log('│ Enter this code in the Airlock mobile app.');
+        console.log(chalk.yellow('└─────────────────────────────────────────────────┘'));
+    }
+
+    console.log(chalk.dim('Waiting for the approver to complete pairing in the mobile app...'));
     for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 5000));
-        const status = await gwClient.getPairingStatus(res.pairingNonce);
+        const status = await gwClient.getPairingStatus(pairingNonce);
         const state = (status.state || '').toLowerCase();
         console.log(chalk.dim(`  Pairing status: ${state} (${(i + 1) * 5}s)`));
 
@@ -418,8 +471,10 @@ async function doSignOut(): Promise<void> {
 
     cfg.accessToken = '';
     cfg.refreshToken = '';
+    cfg.pat = '';
     cfg.tokenExpiresAt = 0;
     gwClient.setBearerToken(undefined);
+    gwClient.setPat(undefined);
     stopHeartbeat();
     saveConfig();
     console.log(chalk.green('✓ Signed out.'));
@@ -427,6 +482,30 @@ async function doSignOut(): Promise<void> {
 
 // ── Session Restore ─────────────────────────────────────────────────
 async function tryRestoreSession(): Promise<void> {
+    // PAT takes priority — no need for token refresh
+    if (cfg.pat) {
+        gwClient.setPat(cfg.pat);
+        console.log(chalk.green('✓ PAT restored'));
+
+        // Validate PAT is still active — handle revoked tokens gracefully
+        try {
+            await checkConsent();
+        } catch (ex: any) {
+            if (ex instanceof AirlockGatewayError && ex.statusCode === 401) {
+                console.log(chalk.yellow('⚠ PAT has been revoked or expired. Please set a new PAT.'));
+                cfg.pat = '';
+                gwClient.setPat(undefined);
+                saveConfig();
+                return;
+            }
+            // Non-401 errors — log but don't crash
+            console.log(chalk.yellow(`⚠ PAT validation failed: ${ex.message || ex}`));
+        }
+
+        if (cfg.routingToken) startHeartbeat();
+        return;
+    }
+
     if (!cfg.refreshToken) return;
 
     authClient.restoreTokens(cfg.accessToken, cfg.refreshToken, cfg.tokenExpiresAt);
@@ -455,6 +534,17 @@ async function tryRestoreSession(): Promise<void> {
         cfg.refreshToken = '';
         cfg.tokenExpiresAt = 0;
         saveConfig();
+    }
+}
+
+// ── Re-apply Auth After Reconfigure ─────────────────────────────────
+function reapplyAuth(): void {
+    if (cfg.pat) {
+        gwClient.setPat(cfg.pat);
+        console.log(chalk.green('✓ PAT re-applied after reconfigure'));
+    } else if (cfg.accessToken) {
+        gwClient.setBearerToken(cfg.accessToken);
+        console.log(chalk.green('✓ Bearer token re-applied after reconfigure'));
     }
 }
 
@@ -571,6 +661,7 @@ async function main(): Promise<void> {
 
         try {
             switch (choice) {
+                case 'setpat': await doSetPat(); break;
                 case 'signin': await doSignIn(); break;
                 case 'pair': await doPair(); break;
                 case 'submit': await doSubmit(); break;
@@ -581,6 +672,7 @@ async function main(): Promise<void> {
                     await runSetupWizard();
                     await discoverGateway();
                     initClients();
+                    reapplyAuth();
                     break;
                 case 'exit':
                     stopHeartbeat();

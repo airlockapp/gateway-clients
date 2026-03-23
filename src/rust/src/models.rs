@@ -201,6 +201,31 @@ pub struct PairingRevokeResponse {
     pub enforcer_id: Option<String>,
 }
 
+/// POST /v1/pairing/claim request body.
+/// Used to claim a pre-generated pairing code created by the approver.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairingClaimRequest {
+    pub pairing_code: String,
+    pub device_id: String,
+    pub enforcer_id: String,
+    pub enforcer_label: String,
+    pub workspace_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x25519_public_key: Option<String>,
+}
+
+/// POST /v1/pairing/claim response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairingClaimResponse {
+    pub pairing_nonce: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+}
+
 // ── Presence ────────────────────────────────────────────────────
 
 /// POST /v1/presence/heartbeat request body.
