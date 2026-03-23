@@ -1,6 +1,6 @@
 # Airlock Integrations Gateway Client SDKs
 
-Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlock.dev) — the enforcer-facing API for human-in-the-loop AI agent approval.
+Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlockapp.io) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
 This repository (**[airlockapp/gateway-clients](https://github.com/airlockapp/gateway-clients)**) is the **standalone** home for these SDKs. The same sources are also maintained under `gateway_sdk/` in the main Airlock product repository for integrated development; changes are synced from there into this repo.
 
