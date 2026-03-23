@@ -15,6 +15,10 @@ Multi-language client SDKs for the [Airlock Integrations Gateway](https://airloc
 | Go | [`src/go/`](src/go/) | `github.com/AirlockHQ/airlock-gateway-sdk-go` |
 | Rust | [`src/rust/`](src/rust/) | `airlock-gateway-sdk` (crates.io) |
 
+## Developer Guide
+
+For detailed information on configuring enforcers, end-to-end encryption, workspace pairing architectures, and common integration patterns, please refer to the comprehensive [Airlock Enforcer Developer Guide](DEVELOPER_GUIDE.md).
+
 ## Gateway API Surface
 
 All SDKs cover the **enforcer-side** endpoints:
