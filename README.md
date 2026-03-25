@@ -2,8 +2,6 @@
 
 Multi-language client SDKs for the [Airlock Integrations Gateway](https://airlockapp.io) — the enforcer-facing API for human-in-the-loop AI agent approval.
 
-This repository (**[airlockapp/gateway-clients](https://github.com/airlockapp/gateway-clients)**) is the **standalone** home for these SDKs. The same sources are also maintained under `gateway_sdk/` in the main Airlock product repository for integrated development; changes are synced from there into this repo.
-
 Published names, install commands, and registry links are summarized on **[Gateway Client SDKs](https://airlockapp.io/docs/sdk/)** (airlockapp.io).
 
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
@@ -144,9 +142,9 @@ This key is used for AES-256-GCM artifact encryption and decision decryption.
 
 ## Building & CI/CD
 
-**Local builds:** Use each language’s tooling from `src/{dotnet,python,typescript,go,rust}/` — see the per-SDK READMEs (build, test, and optional pack commands).
+**Local builds:** Use each language’s tooling from `gateway_sdk/src/{dotnet,python,typescript,go,rust}/` — see the per-SDK READMEs (build, test, and optional pack commands).
 
-**CI/CD:** Automated build, test, and release publishing are handled by **GitHub Actions** (workflows under [`.github/workflows`](.github/workflows) in this repository).
+**CI/CD:** Automated build, test, and release publishing are handled by **GitHub Actions** (workflows under `.github/workflows` in this repository).
 
 | SDK | Typical local build | Registry (releases) |
 |-----|---------------------|---------------------|
@@ -185,7 +183,7 @@ See each SDK's README for detailed prerequisites and setup instructions.
 ### Quality & Documentation
 
 - **API reference docs** — auto-generated per language (DocFX, Sphinx, TypeDoc, godoc, rustdoc)
-- **Integration tests** — test suites running against a live gateway
+- **Integration tests** — test suites running against a live gateway (via .NET Aspire test infrastructure)
 - **CI/CD pipeline** — GitHub Actions workflow for automated build, test, and publish on tag
 
 ### Usage Examples

@@ -92,6 +92,12 @@ async fn main() -> Result<(), GatewayError> {
 }
 ```
 
+### Payload Schema for Mobile Display
+
+The `ciphertext.data` content you encrypt is shown to the mobile approver. Any valid JSON string is supported — the mobile app renders every top-level key as a labelled row. Nested objects and arrays are pretty-printed. Non-JSON strings are displayed as plain monospace text.
+
+> **Note:** The `extensions` field is reserved for HARP protocol extensions (e.g., `org.harp.requestedActions` for custom action buttons). Do not include it manually if using the enforcer SDK's built-in action support.
+
 ### With Enforcer App Credentials
 
 ```rust
@@ -239,14 +245,15 @@ A fully interactive TUI application that demonstrates the complete enforcer life
 ### Run
 
 ```bash
-# From a clone of https://github.com/airlockapp/gateway-clients (repository root)
-cd src/rust
+# In the Airlock monorepo (this crate lives under gateway_sdk/):
+cd gateway_sdk/src/rust
+# In https://github.com/airlockapp/gateway-clients (standalone repo root):
+# cd src/rust
 
 cargo run --bin test_enforcer
 ```
 
 On first run, the setup wizard will prompt for Gateway URL, Client ID, Client Secret, Enforcer ID, and Workspace Name. Configuration is saved to `~/.airlock/test-enforcer-rust.json` and restored on subsequent runs.
-
 
 ## Requirements
 
@@ -262,3 +269,9 @@ cargo test
 ## License
 
 MIT
+
+## Documentation & Resources
+
+For full integration tutorials, conceptual overviews, and detailed API references, please visit the official Airlock Documentation:
+- **[Airlock Developer Guide](https://airlockapp.io/docs/developer-guide/)**
+- **[Airlock SDK Reference & Setup](https://airlockapp.io/docs/sdk/)**

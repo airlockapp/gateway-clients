@@ -104,6 +104,32 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  # ── n8n-nodes-airlock ────────────────────────────────────────────
+  n8n:
+    name: n8n Custom Nodes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.SDK_ROOT }}/n8n-nodes-airlock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install
+      - run: npm run build
+
+      # Build & Publish on tag
+      - name: Build & Publish to NPM
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          npm pkg set version="$VERSION"
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   # ── Go ───────────────────────────────────────────────────────────
   go:
     name: Go SDK

@@ -200,6 +200,12 @@ var requestId = await client.EncryptAndSubmitArtifactAsync(new EncryptedArtifact
 });
 ```
 
+### Payload Schema for Mobile Display
+
+The `Plaintext` content is encrypted end-to-end and shown to the mobile approver. Any valid JSON object is supported — the mobile app renders every top-level key as a labelled row. Nested objects and arrays are pretty-printed. Non-JSON strings are displayed as plain monospace text.
+
+> **Note:** The `extensions` field is reserved for HARP protocol extensions (e.g., `org.harp.requestedActions` for custom action buttons). Do not include it manually if using the enforcer SDK's built-in action support.
+
 ### Decision Verification
 
 Verify a decision envelope's Ed25519 signature, artifact binding, and expiry:
@@ -308,3 +314,9 @@ dotnet test
 ## License
 
 MIT
+
+## Documentation & Resources
+
+For full integration tutorials, conceptual overviews, and detailed API references, please visit the official Airlock Documentation:
+- **[Airlock Developer Guide](https://airlockapp.io/docs/developer-guide/)**
+- **[Airlock SDK Reference & Setup](https://airlockapp.io/docs/sdk/)**

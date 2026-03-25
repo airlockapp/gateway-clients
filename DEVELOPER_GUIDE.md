@@ -562,14 +562,14 @@ All test enforcers implement the same set of scenarios:
 ### Running the .NET Test Enforcer
 
 ```bash
-cd src/dotnet/Airlock.Gateway.Sdk.TestEnforcer
+cd gateway_sdk/src/dotnet/Airlock.Gateway.Sdk.TestEnforcer
 dotnet run
 ```
 
 ### Running the TypeScript Test Enforcer
 
 ```bash
-cd src/typescript/test-enforcer
+cd gateway_sdk/src/typescript/test-enforcer
 npm install
 npm start
 ```
@@ -577,14 +577,14 @@ npm start
 ### Running the Go Test Enforcer
 
 ```bash
-cd src/go
+cd gateway_sdk/src/go
 go run ./cmd/test-enforcer
 ```
 
 ### Running the Python Test Enforcer
 
 ```bash
-cd src/python
+cd gateway_sdk/src/python
 pip install -e .
 python test_enforcer.py
 ```

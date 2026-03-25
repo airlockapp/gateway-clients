@@ -1,0 +1,41 @@
+{
+  "name": "@airlockapp/n8n-nodes-airlock",
+  "version": "1.0.0",
+  "description": "Integration for Airlock Gateway within n8n",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "n8ncommunity-node-package"
+  ],
+  "author": "Airlock",
+  "homepage": "https://airlockapp.io",
+  "license": "MIT",
+  "type": "commonjs",
+  "n8n": {
+    "nodes": [
+      "dist/nodes/AirlockEcho/AirlockEcho.node.js",
+      "dist/nodes/AirlockEnforcer/AirlockEnforcer.node.js"
+    ],
+    "credentials": [
+      "dist/credentials/AirlockGatewayApi.credentials.js"
+    ]
+  },
+  "dependencies": {
+    "@airlockapp/gateway-sdk": "^0.3.5",
+    "n8n-core": "^2.14.0",
+    "n8n-workflow": "^2.14.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.5.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.6",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3"
+  }
+}
