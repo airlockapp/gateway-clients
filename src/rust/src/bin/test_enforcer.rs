@@ -709,6 +709,17 @@ async fn do_submit(inner: &mut Inner, path: &PathBuf) -> Result<(), GatewayError
                     println!("│ Signer: {s}");
                 }
                 println!("└─────────────────────────────────────────────────┘");
+
+                // Fire-and-forget: acknowledge receipt of the decision
+                if let Some(ref msg_id) = envelope.msg_id {
+                    let g = inner.gw.lock().await;
+                    if let Err(e) = g.submit_ack(msg_id, Some(&inner.last_req_id)).await {
+                        warn(&format!("⚠ Ack failed (non-fatal): {e}"));
+                    } else {
+                        ok("✓ Ack sent");
+                    }
+                }
+
                 return Ok(());
             }
         }

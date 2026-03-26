@@ -439,6 +439,12 @@ async def do_submit():
                     if getattr(env.body, "signer_key_id", None):
                         parts.append(f"Signer: {env.body.signer_key_id}")
                     console.print(Panel("\n".join(parts), title="Decision", border_style=color))
+
+                    try:
+                        await gw_client.submit_ack(env.msg_id, last_request_id)
+                    except Exception as e:
+                        console.print(f"[dim]  Ack failed (non-fatal): {e}[/dim]")
+
                     return
             except AirlockGatewayError as ex:
                 if ex.status_code == 404:

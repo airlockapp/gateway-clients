@@ -203,6 +203,27 @@ func (c *Client) WithdrawExchange(requestID string) error {
 	return c.doPost(path, nil, nil)
 }
 
+// SubmitAck calls POST /v1/acks to acknowledge receipt of a decision (fire-and-forget safe).
+func (c *Client) SubmitAck(msgID string, requestID ...string) error {
+	reqID := msgID
+	if len(requestID) > 0 && requestID[0] != "" {
+		reqID = requestID[0]
+	}
+	envelope := map[string]interface{}{
+		"msgId":     fmt.Sprintf("ack-%d", time.Now().UnixNano()),
+		"msgType":   "ack.submit",
+		"requestId": reqID,
+		"createdAt": time.Now().UTC().Format(time.RFC3339),
+		"sender":    map[string]interface{}{},
+		"body": map[string]interface{}{
+			"msgId":  msgID,
+			"status": "delivered",
+			"ackAt":  time.Now().UTC().Format(time.RFC3339),
+		},
+	}
+	return c.doPost("/v1/acks", envelope, nil)
+}
+
 // ── Pairing ─────────────────────────────────────────────────────
 
 // InitiatePairing calls POST /v1/pairing/initiate.

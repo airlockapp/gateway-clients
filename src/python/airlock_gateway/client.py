@@ -204,6 +204,22 @@ class AirlockGatewayClient:
         """POST /v1/exchanges/{requestId}/withdraw — Withdraw a pending exchange."""
         await self._post(f"/v1/exchanges/{request_id}/withdraw", None)
 
+    async def submit_ack(self, msg_id: str, request_id: str = None) -> None:
+        """POST /v1/acks — Acknowledge receipt of a decision (fire-and-forget safe)."""
+        envelope = {
+            "msgId": f"ack-{uuid.uuid4().hex}",
+            "msgType": "ack.submit",
+            "requestId": request_id or msg_id,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "sender": {},
+            "body": {
+                "msgId": msg_id,
+                "status": "delivered",
+                "ackAt": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+        await self._post("/v1/acks", envelope)
+
     # ── Pairing ──────────────────────────────────────────────────
 
     async def initiate_pairing(

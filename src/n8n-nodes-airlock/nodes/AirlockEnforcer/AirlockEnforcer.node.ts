@@ -72,7 +72,7 @@ export class AirlockEnforcer implements INodeType {
 					{ name: 'Checkpoint Review', value: 'checkpoint.review' },
 				],
 				default: 'command.review',
-				description: 'The semantic type of HarP artifact being submitted',
+				description: 'The semantic type of HARP artifact being submitted',
 			},
 			{
 				displayName: 'Request Label',
@@ -306,6 +306,10 @@ export class AirlockEnforcer implements INodeType {
 
 				try {
 					rawDecision = await client.waitForDecision(requestId, approvalTimeoutSeconds);
+					// Fire-and-forget: acknowledge receipt of the decision
+					if (rawDecision?.msgId) {
+						client.submitAck(rawDecision.msgId, requestId).catch(() => {});
+					}
 				} catch (error: any) {
 					if (failMode === 'failClosed') {
 						throw mapAirlockError(this, error);

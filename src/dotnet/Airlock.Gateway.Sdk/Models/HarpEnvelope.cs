@@ -76,4 +76,19 @@ namespace Airlock.Gateway.Sdk.Models
         [JsonPropertyName("requestId")]
         public string? RequestId { get; set; }
     }
+
+    /// <summary>
+    /// Envelope body for ack.submit messages to the gateway.
+    /// </summary>
+    public class AckSubmitBody
+    {
+        [JsonPropertyName("msgId")]
+        public string MsgId { get; set; } = "";
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "";
+
+        [JsonPropertyName("ackAt")]
+        public DateTimeOffset AckAt { get; set; }
+    }
 }

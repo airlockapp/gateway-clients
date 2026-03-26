@@ -144,6 +144,27 @@ namespace Airlock.Gateway.Sdk
         // ── Exchanges ───────────────────────────────────────────────
 
         /// <inheritdoc />
+        public async Task SubmitAckAsync(string msgId, string? requestId = null, CancellationToken ct = default)
+        {
+            var envelope = new HarpEnvelope
+            {
+                MsgId = "ack-" + Guid.NewGuid().ToString("N"),
+                MsgType = "ack.submit",
+                RequestId = requestId ?? msgId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Sender = new SenderInfo(),
+                Body = new AckSubmitBody
+                {
+                    MsgId = msgId,
+                    Status = "delivered",
+                    AckAt = DateTimeOffset.UtcNow
+                }
+            };
+
+            await PostAsync("/v1/acks", envelope, ct).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
         public async Task<ExchangeStatusResponse> GetExchangeStatusAsync(string requestId, CancellationToken ct = default)
         {
             return await GetAsync<ExchangeStatusResponse>($"/v1/exchanges/{Uri.EscapeDataString(requestId)}", ct)

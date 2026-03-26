@@ -21,6 +21,7 @@ npm install @airlockapp/gateway-sdk
 | `GET /v1/exchanges/{requestId}` | `getExchangeStatus` |
 | `GET /v1/exchanges/{requestId}/wait` | `waitForDecision` |
 | `POST /v1/exchanges/{requestId}/withdraw` | `withdrawExchange` |
+| `POST /v1/acks` | `submitAck` |
 | `POST /v1/pairing/initiate` | `initiatePairing` |
 | `GET /v1/pairing/{nonce}/status` | `getPairingStatus` |
 | `POST /v1/pairing/revoke` | `revokePairing` |
@@ -210,6 +211,7 @@ if (decision?.body?.decision === "approve") {
 | `getExchangeStatus(requestId)` | Get exchange status |
 | `waitForDecision(requestId, timeout)` | Long-poll for decision |
 | `withdrawExchange(requestId)` | Withdraw pending exchange |
+| `submitAck(msgId, [requestId])` | Acknowledge receipt of a decision (fire-and-forget) |
 | `initiatePairing(request)` | Start pairing session |
 | `claimPairing(request)` | Claim a pre-generated pairing code |
 | `getPairingStatus(nonce)` | Poll pairing status |

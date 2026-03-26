@@ -21,6 +21,7 @@ go get github.com/airlockapp/gateway-clients/src/go/airlock
 | `GET /v1/exchanges/{requestId}` | `GetExchangeStatus` |
 | `GET /v1/exchanges/{requestId}/wait` | `WaitForDecision` |
 | `POST /v1/exchanges/{requestId}/withdraw` | `WithdrawExchange` |
+| `POST /v1/acks` | `SubmitAck` |
 | `POST /v1/pairing/initiate` | `InitiatePairing` |
 | `GET /v1/pairing/{nonce}/status` | `GetPairingStatus` |
 | `POST /v1/pairing/revoke` | `RevokePairing` |
@@ -196,6 +197,7 @@ if gwErr, ok := err.(*airlock.GatewayError); ok {
 | `GetExchangeStatus(requestID)` | Get exchange status |
 | `WaitForDecision(requestID, timeout)` | Long-poll for decision |
 | `WithdrawExchange(requestID)` | Withdraw pending exchange |
+| `SubmitAck(msgID, requestID)` | Acknowledge receipt of a decision (fire-and-forget) |
 | `InitiatePairing(req)` | Start pairing session |
 | `ClaimPairing(req)` | Claim a pre-generated pairing code |
 | `GetPairingStatus(nonce)` | Poll pairing status |

@@ -162,6 +162,23 @@ export class AirlockGatewayClient {
         await this.post(`/v1/exchanges/${encodeURIComponent(requestId)}/withdraw`, undefined);
     }
 
+    /** POST /v1/acks — Acknowledge receipt of a decision (fire-and-forget safe). */
+    async submitAck(msgId: string, requestId?: string): Promise<void> {
+        const envelope = {
+            msgId: `ack-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            msgType: 'ack.submit',
+            requestId: requestId ?? msgId,
+            createdAt: new Date().toISOString(),
+            sender: {},
+            body: {
+                msgId,
+                status: 'delivered',
+                ackAt: new Date().toISOString(),
+            },
+        };
+        await this.post('/v1/acks', envelope);
+    }
+
     // ── Pairing ─────────────────────────────────────────────────
 
     /** POST /v1/pairing/initiate — Start a new pairing session. */

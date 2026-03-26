@@ -21,6 +21,7 @@ dotnet add package Airlock.Gateway.Sdk
 | `GET /v1/exchanges/{requestId}` | `GetExchangeStatusAsync` |
 | `GET /v1/exchanges/{requestId}/wait` | `WaitForDecisionAsync` |
 | `POST /v1/exchanges/{requestId}/withdraw` | `WithdrawExchangeAsync` |
+| `POST /v1/acks` | `SubmitAckAsync` |
 | `POST /v1/pairing/initiate` | `InitiatePairingAsync` |
 | `GET /v1/pairing/{nonce}/status` | `GetPairingStatusAsync` |
 | `POST /v1/pairing/revoke` | `RevokePairingAsync` |
@@ -236,6 +237,7 @@ else
 | `WaitForDecisionAsync(requestId, timeout)` | Long-poll for decision |
 | `VerifyDecision(decision, hash, publicKey)` | Verify decision signature and binding |
 | `WithdrawExchangeAsync(requestId)` | Withdraw pending exchange |
+| `SubmitAckAsync(msgId, [requestId])` | Acknowledge receipt of a decision (fire-and-forget) |
 | `InitiatePairingAsync(request)` | Start pairing session |
 | `ClaimPairingAsync(request)` | Claim a pre-generated pairing code |
 | `GetPairingStatusAsync(nonce)` | Poll pairing status |

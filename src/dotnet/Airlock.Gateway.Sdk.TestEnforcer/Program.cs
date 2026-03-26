@@ -494,6 +494,15 @@ class Program
                 (string.IsNullOrEmpty(d.SignerKeyId) ? "" : $"Signer: {Markup.Escape(d.SignerKeyId)}"))
                 .Header($"[bold]Decision[/]")
                 .BorderColor(color));
+
+            try
+            {
+                await _gwClient!.SubmitAckAsync(decision.MsgId!, _lastRequestId);
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[dim]  Ack failed (non-fatal): {Markup.Escape(ex.Message)}[/]");
+            }
         }
         else
         {

@@ -232,6 +232,23 @@ impl AirlockGatewayClient {
         .await
     }
 
+    /// POST /v1/acks — Acknowledge receipt of a decision (fire-and-forget safe).
+    pub async fn submit_ack(&self, msg_id: &str, request_id: Option<&str>) -> Result<(), GatewayError> {
+        let envelope = json!({
+            "msgId": format!("ack-{}", Uuid::new_v4()),
+            "msgType": "ack.submit",
+            "requestId": request_id.unwrap_or(msg_id),
+            "createdAt": chrono::Utc::now().to_rfc3339(),
+            "sender": {},
+            "body": {
+                "msgId": msg_id,
+                "status": "delivered",
+                "ackAt": chrono::Utc::now().to_rfc3339(),
+            }
+        });
+        self.post_void("/v1/acks", &envelope).await
+    }
+
     // ── Pairing ─────────────────────────────────────────────────
 
     /// POST /v1/pairing/initiate — Start a new pairing session.

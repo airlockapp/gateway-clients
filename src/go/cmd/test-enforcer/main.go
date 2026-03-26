@@ -489,6 +489,11 @@ func doSubmit() error {
 				fmt.Printf("│ Signer: %s\n", env.Body.SignerKeyID)
 			}
 			fmt.Println("└─────────────────────────────────────────────────┘")
+			
+			if err := gwClient.SubmitAck(env.MsgID, lastReqID); err != nil {
+				dim.Printf("  Ack failed (non-fatal): %v\n", err)
+			}
+
 			return nil
 		}
 	}

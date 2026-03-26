@@ -24,6 +24,7 @@ airlock-gateway = "0.1"
 | `GET /v1/exchanges/{requestId}` | `get_exchange_status` |
 | `GET /v1/exchanges/{requestId}/wait` | `wait_for_decision` |
 | `POST /v1/exchanges/{requestId}/withdraw` | `withdraw_exchange` |
+| `POST /v1/acks` | `submit_ack` |
 | `POST /v1/pairing/initiate` | `initiate_pairing` |
 | `GET /v1/pairing/{nonce}/status` | `get_pairing_status` |
 | `POST /v1/pairing/revoke` | `revoke_pairing` |
@@ -202,6 +203,7 @@ match client.check_consent().await {
 | `get_exchange_status(id)` | Get exchange status |
 | `wait_for_decision(id, timeout)` | Long-poll for decision |
 | `withdraw_exchange(id)` | Withdraw pending exchange |
+| `submit_ack(msg_id, [request_id])` | Acknowledge receipt of a decision (fire-and-forget) |
 | `initiate_pairing(req)` | Start pairing session |
 | `claim_pairing(req)` | Claim a pre-generated pairing code |
 | `get_pairing_status(nonce)` | Poll pairing status |

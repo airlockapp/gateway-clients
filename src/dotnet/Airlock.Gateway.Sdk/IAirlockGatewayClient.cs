@@ -24,6 +24,9 @@ namespace Airlock.Gateway.Sdk
 
         // ── Exchanges ───────────────────────────────────────────────
 
+        /// <summary>POST /v1/acks — Acknowledge receipt of a decision (fire-and-forget safe).</summary>
+        Task SubmitAckAsync(string msgId, string? requestId = null, CancellationToken ct = default);
+
         /// <summary>GET /v1/exchanges/{requestId} — Get exchange status.</summary>
         Task<ExchangeStatusResponse> GetExchangeStatusAsync(string requestId, CancellationToken ct = default);
 

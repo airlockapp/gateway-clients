@@ -424,6 +424,13 @@ async function doSubmit(): Promise<void> {
                 if (env.body.reason) console.log(`│ Reason: ${env.body.reason}`);
                 if (env.body.signerKeyId) console.log(`│ Signer: ${env.body.signerKeyId}`);
                 console.log(color('└─────────────────────────────────────────────────┘'));
+
+                try {
+                    await gwClient.submitAck(env.msgId || "", lastRequestId);
+                } catch (e: any) {
+                    console.log(chalk.dim(`  Ack failed (non-fatal): ${e.message}`));
+                }
+
                 return;
             }
         } catch (ex: any) {

@@ -21,6 +21,7 @@ pip install airlock-gateway
 | `GET /v1/exchanges/{requestId}` | `get_exchange_status` |
 | `GET /v1/exchanges/{requestId}/wait` | `wait_for_decision` |
 | `POST /v1/exchanges/{requestId}/withdraw` | `withdraw_exchange` |
+| `POST /v1/acks` | `submit_ack` |
 | `POST /v1/pairing/initiate` | `initiate_pairing` |
 | `GET /v1/pairing/{nonce}/status` | `get_pairing_status` |
 | `POST /v1/pairing/revoke` | `revoke_pairing` |
@@ -198,6 +199,7 @@ except AirlockGatewayError as e:
 | `get_exchange_status(request_id)` | Get exchange status |
 | `wait_for_decision(request_id, timeout)` | Long-poll for decision |
 | `withdraw_exchange(request_id)` | Withdraw pending exchange |
+| `submit_ack(msg_id, [request_id])` | Acknowledge receipt of a decision (fire-and-forget) |
 | `initiate_pairing(request)` | Start pairing session |
 | `claim_pairing(request)` | Claim a pre-generated pairing code |
 | `get_pairing_status(nonce)` | Poll pairing status |

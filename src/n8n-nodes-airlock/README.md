@@ -37,7 +37,7 @@ Used inside live workflows to verify that the Gateway is online, avoiding mid-ai
 ---
 
 ## 3. Airlock Enforcer Node (Human Approvals)
-This node halts n8n execution, sends an encrypted payload to your mobile device, polls the server with heartbeats while it blocks, and resumes execution strictly once you approve or deny the request.
+This node halts n8n execution, sends an encrypted payload to your mobile device, polls the server with heartbeats while it blocks, and resumes execution strictly once you approve or deny the request. Upon receiving a decision, the node sends a delivery acknowledgment (`POST /v1/acks`) to confirm receipt.
 
 ### Node Configuration
 - **Artifact Type & Request Label**: Categorizes the prompt dynamically displayed on your app.
