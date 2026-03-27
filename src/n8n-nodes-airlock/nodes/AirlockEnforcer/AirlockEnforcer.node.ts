@@ -14,29 +14,29 @@ interface RequestedAction {
 	id: string;
 	caption: string;
 	style: 'primary' | 'secondary' | 'danger';
-	decision: 'allow' | 'deny';
+	decision: 'approve' | 'reject';
 }
 
 /** Built-in action presets matching the platform test enforcer. */
 const ACTION_PRESETS: Record<string, RequestedAction[]> = {
 	allow_only: [
-		{ id: 'allow', caption: 'Allow', style: 'primary', decision: 'allow' },
+		{ id: 'approve', caption: 'Approve', style: 'primary', decision: 'approve' },
 	],
 	allow_deny: [
-		{ id: 'allow', caption: 'Allow', style: 'primary', decision: 'allow' },
-		{ id: 'deny', caption: 'Deny', style: 'danger', decision: 'deny' },
+		{ id: 'approve', caption: 'Approve', style: 'primary', decision: 'approve' },
+		{ id: 'reject', caption: 'Reject', style: 'danger', decision: 'reject' },
 	],
 	run_skip_deny: [
-		{ id: 'run', caption: 'Run', style: 'primary', decision: 'allow' },
-		{ id: 'skip', caption: 'Skip', style: 'secondary', decision: 'deny' },
-		{ id: 'deny', caption: 'Deny', style: 'danger', decision: 'deny' },
+		{ id: 'run', caption: 'Run', style: 'primary', decision: 'approve' },
+		{ id: 'skip', caption: 'Skip', style: 'secondary', decision: 'reject' },
+		{ id: 'reject', caption: 'Reject', style: 'danger', decision: 'reject' },
 	],
 	full: [
-		{ id: 'run_all', caption: 'Run All', style: 'primary', decision: 'allow' },
-		{ id: 'run', caption: 'Run', style: 'secondary', decision: 'allow' },
-		{ id: 'edit', caption: 'Edit', style: 'secondary', decision: 'deny' },
-		{ id: 'skip', caption: 'Skip', style: 'secondary', decision: 'deny' },
-		{ id: 'reject', caption: 'Reject', style: 'danger', decision: 'deny' },
+		{ id: 'run_all', caption: 'Run All', style: 'primary', decision: 'approve' },
+		{ id: 'run', caption: 'Run', style: 'secondary', decision: 'approve' },
+		{ id: 'edit', caption: 'Edit', style: 'secondary', decision: 'reject' },
+		{ id: 'skip', caption: 'Skip', style: 'secondary', decision: 'reject' },
+		{ id: 'reject', caption: 'Reject', style: 'danger', decision: 'reject' },
 	],
 };
 
@@ -88,9 +88,9 @@ export class AirlockEnforcer implements INodeType {
 				name: 'actionPreset',
 				type: 'options',
 				options: [
-					{ name: 'Allow Only', value: 'allow_only', description: 'Single Allow button' },
-					{ name: 'Allow / Deny', value: 'allow_deny', description: 'Allow and Deny buttons' },
-					{ name: 'Run / Skip / Deny', value: 'run_skip_deny', description: 'Run, Skip, and Deny buttons' },
+					{ name: 'Approve Only', value: 'allow_only', description: 'Single Approve button' },
+					{ name: 'Approve / Reject', value: 'allow_deny', description: 'Approve and Reject buttons' },
+					{ name: 'Run / Skip / Reject', value: 'run_skip_deny', description: 'Run, Skip, and Reject buttons' },
 					{ name: 'Full (5 buttons)', value: 'full', description: 'Run All, Run, Edit, Skip, Reject' },
 					{ name: 'Custom', value: 'custom', description: 'Define your own actions' },
 				],
@@ -142,10 +142,10 @@ export class AirlockEnforcer implements INodeType {
 								name: 'decision',
 								type: 'options',
 								options: [
-									{ name: 'Allow', value: 'allow' },
-									{ name: 'Deny', value: 'deny' },
+									{ name: 'Approve', value: 'approve' },
+									{ name: 'Reject', value: 'reject' },
 								],
-								default: 'allow',
+								default: 'approve',
 								description: 'What tapping this button means semantically',
 							},
 						],
@@ -228,7 +228,7 @@ export class AirlockEnforcer implements INodeType {
 						id: a.id || '',
 						caption: a.caption || '',
 						style: a.style || 'primary',
-						decision: a.decision || 'allow',
+						decision: a.decision || 'approve',
 					}));
 				} else {
 					requestedActions = ACTION_PRESETS[actionPreset] || ACTION_PRESETS['allow_deny'];
@@ -314,19 +314,37 @@ export class AirlockEnforcer implements INodeType {
 					if (failMode === 'failClosed') {
 						throw mapAirlockError(this, error);
 					} else {
-						// Fail Open: Mock an allow decision to ensure the workflow continues
+						// Fail Open: Mock an approve decision to ensure the workflow continues
 						rawDecision = {
 							requestId,
 							msgType: 'decision',
 							body: {
-								decision: 'allow',
-								reason: `Fail Open auto-approval on error/timeout: ${error.message || 'Timeout'}`,
+								decision: 'approve',
+								reason: `Fail Open auto-approval on error: ${error.message || 'Unknown error'}`,
 								artifactHash: '',
 							}
 						};
 					}
 				} finally {
 					clearInterval(heartbeatInterval);
+				}
+
+				// Handle timeout: waitForDecision returns null on 204
+				if (rawDecision === null) {
+					if (failMode === 'failClosed') {
+						throw new Error(`Approval timed out after ${approvalTimeoutSeconds}s. Fail Mode is set to Fail Closed — blocking execution.`);
+					} else {
+						// Fail Open: Mock an approve decision so the workflow continues
+						rawDecision = {
+							requestId,
+							msgType: 'decision',
+							body: {
+								decision: 'approve',
+								reason: `Fail Open: auto-approved after ${approvalTimeoutSeconds}s timeout`,
+								artifactHash: '',
+							}
+						};
+					}
 				}
 
 				const output = mapDecisionOutput(

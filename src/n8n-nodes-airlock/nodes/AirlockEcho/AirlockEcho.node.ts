@@ -212,14 +212,16 @@ export class AirlockEcho implements INodeType {
 					}
 
 					returnData.push({
-						paired: true,
-						credentialsSaved,
-						encryptionKeyBase64Url: derivedEncryptionKey,
-						routingToken: routingToken,
-						instructions: credentialsSaved
-							? 'Credentials have been automatically updated!'
-							: 'Auto-save failed. Please copy these values into your Airlock Gateway API credentials manually.',
-					});
+					paired: true,
+					credentialsSaved,
+					encryptionKeyBase64Url: derivedEncryptionKey,
+					routingToken: routingToken,
+					instructions: credentialsSaved
+						? 'Credentials have been automatically updated!'
+						: `Auto-save failed${!process.env.N8N_API_KEY ? ' (N8N_API_KEY environment variable is not set)' : ''}.`
+							+ ' To enable auto-save, set the N8N_API_KEY environment variable in your n8n container/instance.'
+							+ ' Otherwise, please copy the encryptionKeyBase64Url and routingToken values above into your Airlock Gateway API credentials manually.',
+				});
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {

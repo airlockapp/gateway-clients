@@ -1,6 +1,6 @@
 {
   "name": "@airlockapp/n8n-nodes-airlock",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Integration for Airlock Gateway within n8n",
   "main": "dist/index.js",
   "scripts": {
@@ -26,7 +26,7 @@
     ]
   },
   "dependencies": {
-    "@airlockapp/gateway-sdk": "^0.4.0",
+    "@airlockapp/gateway-sdk": "^0.4.1",
     "n8n-core": "^2.14.0",
     "n8n-workflow": "^2.14.0"
   },

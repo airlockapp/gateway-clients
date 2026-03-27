@@ -8,7 +8,7 @@
     <RootNamespace>Airlock.Gateway.Sdk</RootNamespace>
     <AssemblyName>Airlock.Gateway.Sdk</AssemblyName>
     <PackageId>Airlock.Gateway.Sdk</PackageId>
-    <Version>0.4.0</Version>
+    <Version>0.4.1</Version>
     <Authors>Airlock</Authors>
     <Description>Client SDK for the Airlock Gateway — submit artifacts, poll for decisions, manage pairing and presence. Includes transparent AES-256-GCM encryption with X25519 ECDH key exchange.</Description>
     <PackageTags>airlock;gateway;sdk;harp;approval;encryption</PackageTags>
