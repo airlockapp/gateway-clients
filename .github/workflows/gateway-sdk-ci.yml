@@ -118,8 +118,8 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
       - name: Build Local SDK
+        working-directory: ${{ env.SDK_ROOT }}/typescript
         run: |
-          cd ${{ env.SDK_ROOT }}/typescript
           npm install
           npm run build
           npm pack
