@@ -117,8 +117,20 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install
+      - name: Build Local SDK
+        run: |
+          cd ${{ env.SDK_ROOT }}/typescript
+          npm install
+          npm run build
+          npm pack
+      - name: Install n8n Dependencies
+        run: |
+          cp package.json package.json.bak
+          npm install ../typescript/airlockapp-gateway-sdk-*.tgz
+          npm install
       - run: npm run build
+      - name: Restore package.json
+        run: mv package.json.bak package.json
 
       # Build & Publish on tag
       - name: Build & Publish to NPM
