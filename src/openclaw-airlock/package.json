@@ -10,7 +10,7 @@
   "homepage": "https://airlockapp.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/airlockapp/gateway-clients.git",
+    "url": "git+https://github.com/airlockapp/gateway-clients.git",
     "directory": "src/openclaw-airlock"
   },
   "bugs": {
