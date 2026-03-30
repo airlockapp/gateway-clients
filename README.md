@@ -7,6 +7,8 @@ Published names, install commands, and registry links are summarized on **[Gatew
 > **Note:** These SDKs cover only the enforcer-safe endpoints exposed by the Integrations Gateway.
 > Approver-facing operations (decision submission, inbox management, pairing resolution/completion) are not available through this surface.
 
+**Airlock Approver** (mobile app): [App Store](https://apps.apple.com/us/app/airlock-approver/id6760250865) · [Google Play](https://play.google.com/store/apps/details?id=com.airlockapp.io)
+
 ## Available SDKs
 
 | Language | Path | Package |
@@ -181,21 +183,3 @@ All test enforcers default to **PAT as the recommended authentication** method, 
 
 See each SDK's README for detailed prerequisites and setup instructions.
 
-## Roadmap
-
-### SDK Enhancements (v2)
-
-- **WebSocket / SSE real-time connections** — enforcer live streams, presence events
-- ~~**E2E encryption helpers**~~ ✅ Delivered — X25519 ECDH key exchange, HKDF-SHA256, AES-256-GCM encrypt/decrypt
-- **Retry / backoff policies** — built-in exponential backoff for `WaitForDecision` polling loops
-
-### Quality & Documentation
-
-- **API reference docs** — auto-generated per language (DocFX, Sphinx, TypeDoc, godoc, rustdoc)
-- **Integration tests** — test suites running against a live gateway (via .NET Aspire test infrastructure)
-- ~~**CI/CD pipeline**~~ ✅ Delivered — GitHub Actions workflow for automated build, test, and publish on tag (all SDKs + n8n + OpenClaw)
-
-### Usage Examples
-
-- **Per-language sample projects** — real-world enforcer client demonstrating artifact submission, decision polling, and pairing flow
-- **Multi-SDK interop demo** — cross-language scenario showing the same workflow in all 5 SDKs

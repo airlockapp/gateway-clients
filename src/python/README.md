@@ -288,3 +288,4 @@ MIT
 For full integration tutorials, conceptual overviews, and detailed API references, please visit the official Airlock Documentation:
 - **[Airlock Developer Guide](https://airlockapp.io/docs/developer-guide/)**
 - **[Airlock SDK Reference & Setup](https://airlockapp.io/docs/sdk/)**
+- **Airlock Approver** (mobile app): [App Store](https://apps.apple.com/us/app/airlock-approver/id6760250865) · [Google Play](https://play.google.com/store/apps/details?id=com.airlockapp.io)
