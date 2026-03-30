@@ -17,6 +17,13 @@ Published names, install commands, and registry links are summarized on **[Gatew
 | Go | [`src/go/`](src/go/) | [`airlock-gateway`](https://pkg.go.dev/github.com/airlockapp/gateway-clients/src/go/airlock) — `go get github.com/airlockapp/gateway-clients/src/go/airlock` |
 | Rust | [`src/rust/`](src/rust/) | [`airlock-gateway`](https://crates.io/crates/airlock-gateway) (crates.io) |
 
+## Integrations & Plugins
+
+| Integration | Path | Package | Built on |
+|-------------|------|---------|----------|
+| n8n Custom Nodes | [`src/n8n-nodes-airlock/`](src/n8n-nodes-airlock/) | [`@airlockapp/n8n-nodes-airlock`](https://www.npmjs.com/package/@airlockapp/n8n-nodes-airlock) (npm) | TypeScript SDK |
+| OpenClaw Plugin | [`src/openclaw-airlock/`](src/openclaw-airlock/) | [`@airlockapp/openclaw-airlock`](https://www.npmjs.com/package/@airlockapp/openclaw-airlock) (npm) | TypeScript SDK |
+
 ## Gateway API Surface
 
 All SDKs cover the **enforcer-side** endpoints:
@@ -153,6 +160,8 @@ This key is used for AES-256-GCM artifact encryption and decision decryption.
 | TypeScript | `npm install` / `npm run build` / `npm test` | npm |
 | Go | `go test ./airlock/...` | pkg.go.dev (module tags) |
 | Rust | `cargo build` / `cargo test` | crates.io |
+| n8n Nodes | `npm install` / `npm run build` (builds local TS SDK first) | npm |
+| OpenClaw Plugin | `npm install` / `npm run build` (builds local TS SDK first) | npm |
 
 ## Test Enforcer CLIs
 
@@ -184,7 +193,7 @@ See each SDK's README for detailed prerequisites and setup instructions.
 
 - **API reference docs** — auto-generated per language (DocFX, Sphinx, TypeDoc, godoc, rustdoc)
 - **Integration tests** — test suites running against a live gateway (via .NET Aspire test infrastructure)
-- **CI/CD pipeline** — GitHub Actions workflow for automated build, test, and publish on tag
+- ~~**CI/CD pipeline**~~ ✅ Delivered — GitHub Actions workflow for automated build, test, and publish on tag (all SDKs + n8n + OpenClaw)
 
 ### Usage Examples
 
