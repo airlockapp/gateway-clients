@@ -31,8 +31,10 @@
     "openclaw.plugin.json"
   ],
   "openclaw": {
-    "entry": "./dist/index.js",
-    "compatibleWith": ">=0.1.0"
+	  "extensions":{
+		"entry": "./dist/index.js",
+		"compatibleWith": ">=0.1.0"
+	   }
   },
   "scripts": {
     "build": "tsc",
