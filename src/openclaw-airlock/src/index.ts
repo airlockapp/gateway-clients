@@ -27,12 +27,15 @@ import { registerPairCommand } from "./cli/pair.js";
 // Replace with actual imports from "openclaw/plugin-sdk" when available.
 
 interface OpenClawPluginAPI {
-  pluginConfig?: Record<string, unknown>;
-  getConfig?(): Record<string, unknown>;
+  getConfig(): Record<string, unknown>;
   registerTool(def: unknown, handler: (input: unknown) => Promise<unknown>): void;
-  registerHook?(event: string, handler: (context: unknown) => Promise<void>): void;
-  registerCommand?(def: unknown, handler: () => Promise<string>): void;
-  registerCliCommand?(def: unknown, handler: (args: unknown) => Promise<void>): void;
+  registerHook(event: string, handler: (context: unknown) => Promise<void>): void;
+  registerCommand(def: unknown, handler: () => Promise<string>): void;
+  registerCliCommand(def: unknown, handler: (args: unknown) => Promise<void>): void;
+}
+
+interface OpenClawPluginAPICompat extends Partial<OpenClawPluginAPI> {
+  pluginConfig?: Record<string, unknown>;
   registerCli?(def: unknown, handler: (args: unknown) => Promise<void>): void;
 }
 
@@ -40,7 +43,7 @@ interface PluginEntryDefinition {
   id: string;
   name: string;
   description: string;
-  register(api: OpenClawPluginAPI): void;
+  register(api: OpenClawPluginAPICompat): void;
 }
 
 /**
@@ -61,7 +64,7 @@ export default definePluginEntry({
     "Enforces human-in-the-loop approval for risky AI actions via Airlock Gateway. " +
     "Supports tool-based and hook-based enforcement with polling-based decision handling.",
 
-  register(api: OpenClawPluginAPI) {
+  register(api: OpenClawPluginAPICompat) {
     // AIRLOCK_COMPAT_SHIM v6
     if (!api.getConfig) {
       api.getConfig = () => api.pluginConfig ?? {};
@@ -73,10 +76,13 @@ export default definePluginEntry({
     if (_oCmd) {
       api.registerCommand = function (a: unknown, b: unknown) {
         if (typeof b === "function") {
-          return _oCmd.call(api, Object.assign({}, a as Record<string, unknown>, { handler: b }));
+          return (_oCmd as (def: unknown) => void).call(
+            api,
+            Object.assign({}, a as Record<string, unknown>, { handler: b }),
+          );
         }
         return (_oCmd as (def: unknown) => void).call(api, a);
-      } as OpenClawPluginAPI["registerCommand"];
+      } as OpenClawPluginAPICompat["registerCommand"];
     }
     const _oHook = api.registerHook;
     if (_oHook) {
@@ -91,10 +97,12 @@ export default definePluginEntry({
     }
     // END AIRLOCK_COMPAT_SHIM
 
+    const readyApi = api as OpenClawPluginAPI;
+
     // Phase 2: Config
     let config: AirlockConfig;
     try {
-      config = loadAndValidateConfig(api.getConfig?.() ?? {});
+      config = loadAndValidateConfig(readyApi.getConfig());
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[Airlock] Plugin disabled — config error: ${msg}`);
@@ -112,20 +120,20 @@ export default definePluginEntry({
     });
 
     // Phase 4: Tool — requestApproval
-    registerRequestApprovalTool(api, client, config);
+    registerRequestApprovalTool(readyApi, client, config);
 
     // Phase 5: Tool — checkStatus
-    registerCheckStatusTool(api, client, config);
+    registerCheckStatusTool(readyApi, client, config);
 
     // Phase 6: Hook — beforeTool (with DND check)
-    registerBeforeToolHook(api, client, config);
+    registerBeforeToolHook(readyApi, client, config);
 
     // Phase 7: Command — /airlock-status
-    registerAirlockStatusCommand(api, client, config);
+    registerAirlockStatusCommand(readyApi, client, config);
 
     // Phase 8: CLI commands
-    registerSetupCommand(api, client, config);
-    registerPairCommand(api, client, config);
+    registerSetupCommand(readyApi, client, config);
+    registerPairCommand(readyApi, client, config);
 
     console.error(
       `[Airlock] Plugin loaded — enforcer=${config.enforcerId}, ` +
