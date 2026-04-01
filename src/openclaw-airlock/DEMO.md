@@ -35,7 +35,7 @@ This demonstrates the full Airlock value proposition: **human-in-the-loop contro
 | **Telegram Bot** | Created via [@BotFather](https://t.me/BotFather), token configured in OpenClaw |
 | **Airlock Account** | Registered at [airlockapp.io](https://airlockapp.io) with an enforcer app |
 | **Airlock Mobile App** | Installed on your phone ([iOS](https://apps.apple.com/app/airlock) / [Android](https://play.google.com/store/apps/details?id=io.airlockapp.mobile)) |
-| **Airlock Plugin** | Deployed to the OpenClaw extensions directory (see [INSTALL.md](./INSTALL.md)) |
+| **Airlock Plugin** | Deployed to the OpenClaw extensions directory — install via npm (`npm install @airlockapp/openclaw-airlock`) or build from source (see [INSTALL.md](./INSTALL.md)) |
 
 ---
 

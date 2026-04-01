@@ -7,9 +7,19 @@ This guide covers installing and configuring the **Airlock** plugin for [OpenCla
 - **OpenClaw** installed and running (e.g., via the [DigitalOcean Marketplace](https://marketplace.digitalocean.com/apps/openclaw))
 - **Airlock account** with an enforcer app configured at [airlockapp.io](https://airlockapp.io)
 - **Airlock mobile app** installed on your phone
-- **Node.js 18+** (for building from source)
+- **Node.js 18+** (for npm install or building from source)
 
-## 1. Build the Plugin
+## 1. Install the Plugin
+
+### Option A: Install from npm (Recommended)
+
+```bash
+ssh root@<server-ip> "mkdir -p ~/.openclaw/extensions/airlock && cd ~/.openclaw/extensions/airlock && npm init -y && npm install @airlockapp/openclaw-airlock"
+```
+
+The npm package is available at: [npmjs.com/package/@airlockapp/openclaw-airlock](https://www.npmjs.com/package/@airlockapp/openclaw-airlock)
+
+### Option B: Build from Source
 
 ```bash
 cd src/openclaw-airlock
@@ -21,7 +31,9 @@ This produces the `dist/` directory with compiled JavaScript.
 
 ## 2. Deploy to the Server
 
-Copy the extension to the OpenClaw extensions directory on your server:
+If you installed via npm (Option A), the files are already on the server. Skip to Step 3.
+
+If you built from source (Option B), copy the extension to the server:
 
 ```bash
 # Create the extension directory
@@ -30,15 +42,17 @@ ssh root@<server-ip> "mkdir -p /root/.openclaw/extensions/airlock"
 # Copy the required files
 scp -r dist package.json openclaw.plugin.json node_modules \
   root@<server-ip>:~/.openclaw/extensions/airlock/
+```
 
-# If OpenClaw runs as a separate user (e.g., 'openclaw'), copy there too:
+### Dual-User Setup (DigitalOcean)
+
+On DigitalOcean droplets, the CLI runs as `root` but the service runs as the `openclaw` user. Both paths must contain the extension files:
+
+```bash
 ssh root@<server-ip> "
   cp -r /root/.openclaw/extensions/airlock /home/openclaw/.openclaw/extensions/
   chown -R openclaw:openclaw /home/openclaw/.openclaw/extensions/airlock
 "
-```
-
-> **Note:** On DigitalOcean droplets, the CLI runs as `root` but the service runs as the `openclaw` user. Both paths must contain the extension files.
 
 ## 3. Configure the Plugin
 
