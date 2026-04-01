@@ -6,8 +6,9 @@
  * claimed, subsequent registrars for the same command are skipped.
  *
  * Subcommands:
- *   openclaw airlock setup  — Validate config and test gateway connectivity
- *   openclaw airlock pair   — Claim a pre-generated pairing code
+ *   openclaw airlock setup   — Validate config and test gateway connectivity
+ *   openclaw airlock consent — Trigger and wait for user consent on the mobile app
+ *   openclaw airlock pair    — Claim a pre-generated pairing code
  */
 
 import type { AirlockClient } from "../client.js";
@@ -66,7 +67,25 @@ export function registerCliCommands(
             return;
           }
 
-          // 3. Pairing status
+          // 3. Consent status
+          try {
+            const consent = await client.checkConsent();
+            if (consent.status === "approved") {
+              console.log("\n✓ App consent: approved");
+            } else if (consent.status === "required") {
+              console.log("\n⚠ App consent: required — run 'openclaw airlock consent' to trigger approval");
+              if (consent.message) console.log(`  ${consent.message}`);
+            } else if (consent.status === "pending") {
+              console.log("\n⏳ App consent: pending — check your Airlock mobile app");
+            } else if (consent.status === "denied") {
+              console.error("\n✗ App consent: denied by user");
+              if (consent.message) console.error(`  ${consent.message}`);
+            }
+          } catch {
+            console.log("\n⚠ App consent: could not check (non-fatal)");
+          }
+
+          // 4. Pairing status
           if (config.routingToken && config.encryptionKey) {
             console.log("\n✓ Paired — ready to enforce");
           } else if (config.pairingCode) {
@@ -79,7 +98,7 @@ export function registerCliCommands(
             );
           }
 
-          // 4. Protected tools
+          // 5. Protected tools
           if (config.protectedTools.length > 0) {
             console.log(`\nProtected tools (${config.protectedTools.length}):`);
             for (const tool of config.protectedTools) {
@@ -93,6 +112,86 @@ export function registerCliCommands(
           }
 
           console.log("\n✓ Setup complete");
+        });
+
+      // ── airlock consent ─────────────────────────────────────
+      airlockCmd
+        .command("consent")
+        .description(
+          "Trigger and wait for user consent on the Airlock mobile app",
+        )
+        .action(async () => {
+          await client.ensureInitialized();
+
+          console.log("Airlock Consent");
+          console.log("═".repeat(40));
+
+          console.log(`\nEnforcer ID:  ${config.enforcerId}`);
+          console.log(`Gateway:      ${config.gatewayUrl}`);
+
+          // Initial check — this triggers the consent push if first time
+          console.log("\nChecking consent status...");
+          let consent = await client.checkConsent();
+
+          if (consent.status === "approved") {
+            console.log("✓ Consent already granted — you're good to go.");
+            return;
+          }
+
+          if (consent.status === "denied") {
+            console.error("✗ Consent was denied by the user.");
+            console.error("  Ask the user to re-approve in the Airlock mobile app.");
+            if (consent.consentUrl) {
+              console.error(`  Consent URL: ${consent.consentUrl}`);
+            }
+            return;
+          }
+
+          // Status is "required" or "pending" — show instructions and poll
+          console.log("\n┌─ Consent Required ──────────────────────────────┐");
+          if (consent.message) {
+            console.log(`│ ${consent.message}`);
+          }
+          console.log("│ A consent request has been sent to the user's");
+          console.log("│ Airlock mobile app. Please approve it there.");
+          if (consent.consentUrl) {
+            console.log(`│ Or open: ${consent.consentUrl}`);
+          }
+          console.log("└─────────────────────────────────────────────────┘");
+          console.log("\nWaiting for consent approval...");
+
+          // Poll every 5 seconds for up to 5 minutes
+          const deadline = Date.now() + 5 * 60 * 1000;
+          let pollCount = 0;
+
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 5000));
+            pollCount++;
+
+            try {
+              consent = await client.checkConsent();
+            } catch {
+              console.log(`  Poll ${pollCount}: error (retrying...)`);
+              continue;
+            }
+
+            if (consent.status === "approved") {
+              console.log(`\n✓ Consent granted! (after ${pollCount * 5}s)`);
+              console.log("  You can now proceed with 'openclaw airlock pair'.");
+              return;
+            }
+
+            if (consent.status === "denied") {
+              console.error(`\n✗ Consent was denied. (after ${pollCount * 5}s)`);
+              return;
+            }
+
+            const elapsed = pollCount * 5;
+            console.log(`  Waiting... (${elapsed}s elapsed, status: ${consent.status})`);
+          }
+
+          console.error("\n✗ Timed out waiting for consent (5 minutes).");
+          console.error("  Try again or check the Airlock mobile app.");
         });
 
       // ── airlock pair ────────────────────────────────────────
@@ -133,6 +232,19 @@ export function registerCliCommands(
             console.error(`✗ Cannot reach gateway: ${health.error}`);
             console.error("  Fix connectivity before pairing.");
             return;
+          }
+
+          // Check consent before attempting to pair
+          try {
+            const consent = await client.checkConsent();
+            if (consent.status !== "approved") {
+              console.error("⚠ App consent not yet granted.");
+              console.error("  Run 'openclaw airlock consent' first to get user approval.");
+              return;
+            }
+          } catch {
+            // Consent check failed — continue with pairing anyway
+            console.log("⚠ Could not verify consent status (continuing...)");
           }
 
           console.log(`Gateway:      ${config.gatewayUrl}`);

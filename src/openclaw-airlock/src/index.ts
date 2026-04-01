@@ -142,6 +142,6 @@ export default definePluginEntry({
 
 // Re-export types for consumers
 export type { AirlockConfig } from "./config.js";
-export type { AirlockClient, Decision, ApprovalPayload, HealthResult } from "./client.js";
+export type { AirlockClient, Decision, ApprovalPayload, HealthResult, ConsentResult, ConsentStatus } from "./client.js";
 export { loadAndValidateConfig, ConfigError } from "./config.js";
 export { createAirlockClient } from "./client.js";

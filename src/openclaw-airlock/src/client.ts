@@ -67,6 +67,16 @@ export interface HealthResult {
   error?: string;
 }
 
+/** Consent status values. */
+export type ConsentStatus = "approved" | "required" | "pending" | "denied" | "unknown";
+
+/** Result of a consent check. */
+export interface ConsentResult {
+  status: ConsentStatus;
+  message?: string;
+  consentUrl?: string;
+}
+
 // ── Constants ───────────────────────────────────────────────────
 
 /** Server-side long-poll timeout per request (seconds). */
@@ -281,6 +291,60 @@ export class AirlockClient {
     } catch {
       // DND check is best-effort — if it fails, proceed to normal approval
       return false;
+    }
+  }
+
+  // ── Consent ────────────────────────────────────────────────────
+
+  /** Result of a consent check. */
+  /** {@link checkConsent} */
+
+  /**
+   * Check the user consent status for this enforcer app.
+   *
+   * Calls GET /v1/consent/status. The gateway returns:
+   * - 200 + { status: "approved" } — consent granted
+   * - 403 + app_consent_required   — first contact; push sent to mobile app
+   * - 403 + app_consent_pending    — user hasn't responded yet
+   * - 403 + app_consent_denied     — user denied
+   *
+   * @returns ConsentResult with status and optional message/consentUrl.
+   */
+  async checkConsent(): Promise<ConsentResult> {
+    try {
+      const status = await this.gateway.checkConsent();
+      return { status: status as ConsentStatus };
+    } catch (err) {
+      if (err instanceof AirlockGatewayError) {
+        const code = err.errorCode ?? "";
+        if (
+          code === "app_consent_required" ||
+          code === "app_consent_pending" ||
+          code === "app_consent_denied"
+        ) {
+          // Parse consentUrl and message from the response body
+          let consentUrl: string | undefined;
+          let message: string | undefined;
+          try {
+            const body = JSON.parse(err.responseBody ?? "{}");
+            consentUrl = body.consentUrl;
+            message = body.message;
+          } catch {
+            // ignore parse errors
+          }
+          return {
+            status: code === "app_consent_required"
+              ? "required"
+              : code === "app_consent_pending"
+                ? "pending"
+                : "denied",
+            message: message ?? err.message,
+            consentUrl,
+          };
+        }
+      }
+      // Non-consent errors — rethrow
+      throw err;
     }
   }
 
