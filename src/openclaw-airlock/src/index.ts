@@ -19,8 +19,7 @@ import { registerRequestApprovalTool } from "./tools/requestApproval.js";
 import { registerCheckStatusTool } from "./tools/checkStatus.js";
 import { registerBeforeToolHook } from "./hooks/beforeTool.js";
 import { registerAirlockStatusCommand } from "./commands/airlockStatus.js";
-import { registerSetupCommand } from "./cli/setup.js";
-import { registerPairCommand } from "./cli/pair.js";
+import { registerCliCommands } from "./cli/register.js";
 
 // ── OpenClaw Plugin API types ───────────────────────────────────
 // These are minimal type stubs for the OpenClaw plugin SDK.
@@ -130,9 +129,8 @@ export default definePluginEntry({
     // Phase 7: Command — /airlock-status
     registerAirlockStatusCommand(readyApi, client, config);
 
-    // Phase 8: CLI commands — uses registerCli(registrar, opts) with Commander.js
-    registerSetupCommand(readyApi, client, config);
-    registerPairCommand(readyApi, client, config);
+    // Phase 8: CLI commands — single registrar for all airlock subcommands
+    registerCliCommands(readyApi, client, config);
 
     console.error(
       `[Airlock] Plugin loaded — enforcer=${config.enforcerId}, ` +
