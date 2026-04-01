@@ -31,12 +31,14 @@ interface OpenClawPluginAPI {
   registerTool(def: unknown, handler: (input: unknown) => Promise<unknown>): void;
   registerHook(event: string, handler: (context: unknown) => Promise<void>): void;
   registerCommand(def: unknown, handler: () => Promise<string>): void;
-  registerCliCommand(def: unknown, handler: (args: unknown) => Promise<void>): void;
+  registerCli(
+    registrar: (ctx: { program: unknown; config: unknown; workspaceDir: string; logger: unknown }) => void | Promise<void>,
+    opts?: { commands?: string[] },
+  ): void;
 }
 
 interface OpenClawPluginAPICompat extends Partial<OpenClawPluginAPI> {
   pluginConfig?: Record<string, unknown>;
-  registerCli?(def: unknown, handler: (args: unknown) => Promise<void>): void;
 }
 
 interface PluginEntryDefinition {
@@ -65,12 +67,9 @@ export default definePluginEntry({
     "Supports tool-based and hook-based enforcement with polling-based decision handling.",
 
   register(api: OpenClawPluginAPICompat) {
-    // AIRLOCK_COMPAT_SHIM v6
+    // AIRLOCK_COMPAT_SHIM v7
     if (!api.getConfig) {
       api.getConfig = () => api.pluginConfig ?? {};
-    }
-    if (!api.registerCliCommand) {
-      api.registerCliCommand = api.registerCli || (function (_def: unknown, _handler: (args: unknown) => Promise<void>) {});
     }
     const _oCmd = api.registerCommand;
     if (_oCmd) {
@@ -131,7 +130,7 @@ export default definePluginEntry({
     // Phase 7: Command — /airlock-status
     registerAirlockStatusCommand(readyApi, client, config);
 
-    // Phase 8: CLI commands
+    // Phase 8: CLI commands — uses registerCli(registrar, opts) with Commander.js
     registerSetupCommand(readyApi, client, config);
     registerPairCommand(readyApi, client, config);
 
