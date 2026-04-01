@@ -38,6 +38,9 @@ export function registerCliCommands(
           "Validate Airlock configuration and test gateway connectivity",
         )
         .action(async () => {
+          // Ensure pairing state is loaded from disk before checking config
+          await client.ensureInitialized();
+
           console.log("Airlock Setup");
           console.log("═".repeat(40));
 
@@ -99,6 +102,9 @@ export function registerCliCommands(
           "Claim a pre-generated pairing code and establish encrypted communication",
         )
         .action(async () => {
+          // Ensure pairing state is loaded from disk before checking config
+          await client.ensureInitialized();
+
           console.log("Airlock Pairing");
           console.log("═".repeat(40));
 
@@ -148,7 +154,7 @@ export function registerCliCommands(
               "  Encryption:    ✓ Key derived (X25519 ECDH + HKDF-SHA256)",
             );
             console.log(
-              "  State File:    ✓ Persisted to .airlock/pairing-state.json",
+              "  State File:    ✓ Persisted to ~/.openclaw/.airlock/pairing-state.json",
             );
             console.log("\n  Airlock is now ready to enforce approvals.");
           } catch (err) {

@@ -12,6 +12,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
+import { homedir } from "node:os";
 import type { PairedKeyEntry } from "./crypto.js";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -31,13 +32,22 @@ export interface AirlockPairingState {
 
 // ── Constants ───────────────────────────────────────────────────
 
+const OPENCLAW_DIR = ".openclaw";
 const STATE_DIR = ".airlock";
 const STATE_FILE = "pairing-state.json";
 
 // ── State Operations ────────────────────────────────────────────
 
+/**
+ * Returns a stable state file path: ~/.openclaw/.airlock/pairing-state.json
+ *
+ * Uses homedir() instead of process.cwd() so the pairing state is found
+ * regardless of which user or working directory runs the CLI command.
+ * Falls back to OPENCLAW_HOME env var if set.
+ */
 function getStatePath(): string {
-  return join(process.cwd(), STATE_DIR, STATE_FILE);
+  const base = process.env.OPENCLAW_HOME ?? join(homedir(), OPENCLAW_DIR);
+  return join(base, STATE_DIR, STATE_FILE);
 }
 
 /**

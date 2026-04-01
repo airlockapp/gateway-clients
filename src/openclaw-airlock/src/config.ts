@@ -97,6 +97,10 @@ export function loadAndValidateConfig(raw: Record<string, unknown>): AirlockConf
       .filter((t) => t.length > 0);
   }
 
+  // ── Pairing state (may come from config or be restored from disk at runtime) ──
+  const routingToken = optionalString(raw, "routingToken");
+  const encryptionKey = optionalString(raw, "encryptionKey");
+
   return {
     gatewayUrl: gatewayUrl.replace(/\/$/, ""),
     enforcerId,
@@ -110,6 +114,8 @@ export function loadAndValidateConfig(raw: Record<string, unknown>): AirlockConf
     failMode: rawFailMode,
     protectedTools,
     executionMode: rawExecMode,
+    routingToken,
+    encryptionKey,
   };
 }
 

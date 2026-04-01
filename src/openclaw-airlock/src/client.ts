@@ -99,20 +99,41 @@ export class AirlockClient {
     });
   }
 
+  private initPromise: Promise<void> | null = null;
+
   // ── Initialization ────────────────────────────────────────────
 
   /**
    * Restore pairing state from disk and start presence heartbeat.
-   * Call this after creating the client.
+   * Idempotent — safe to call multiple times; only runs once.
    */
   async initialize(): Promise<void> {
-    // Restore persisted pairing state
-    const state = await loadPairingState();
-    if (state) {
-      this.config.routingToken = state.routingToken;
-      this.config.encryptionKey = state.encryptionKey;
-      this.pairedKeys = state.pairedKeys;
-      this.log("Pairing state restored from disk");
+    if (!this.initPromise) {
+      this.initPromise = this._doInitialize();
+    }
+    return this.initPromise;
+  }
+
+  /**
+   * Ensure initialization is complete before proceeding.
+   * CLI commands should await this before checking config.routingToken etc.
+   */
+  async ensureInitialized(): Promise<void> {
+    await this.initialize();
+  }
+
+  private async _doInitialize(): Promise<void> {
+    // Restore persisted pairing state (only if not already set from config)
+    if (!this.config.routingToken || !this.config.encryptionKey) {
+      const state = await loadPairingState();
+      if (state) {
+        this.config.routingToken = state.routingToken;
+        this.config.encryptionKey = state.encryptionKey;
+        this.pairedKeys = state.pairedKeys;
+        this.log("Pairing state restored from disk");
+      }
+    } else {
+      this.log("Pairing state already in config");
     }
 
     // Start presence heartbeat
