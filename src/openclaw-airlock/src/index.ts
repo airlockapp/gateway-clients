@@ -84,9 +84,20 @@ export default definePluginEntry({
     }
     const _oHook = api.registerHook;
     if (_oHook) {
-      api.registerHook = function (a: string, b: (context: unknown) => Promise<void>) {
+      api.registerHook = function (a: unknown, b?: (context: unknown) => Promise<void>) {
         try {
-          return _oHook.call(api, a, b);
+          // OpenClaw registerHook may expect (name, event, handler) or (event, handler)
+          if (typeof a === "string" && typeof b === "function") {
+            const hookName = `airlock-${a}`;
+            try {
+              // Try 3-arg: (name, event, handler)
+              return (_oHook as Function).call(api, hookName, a, b);
+            } catch {
+              // Fall back to 2-arg: (event, handler)
+              return (_oHook as Function).call(api, a, b);
+            }
+          }
+          return (_oHook as (def: unknown) => void).call(api, a);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.warn("[Airlock] registerHook warning:", msg);
