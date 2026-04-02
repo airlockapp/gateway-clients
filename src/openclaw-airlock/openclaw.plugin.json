@@ -1,5 +1,5 @@
 {
-  "id": "airlock",
+  "id": "openclaw-airlock",
   "name": "Airlock Security Gateway",
   "version": "1.0.2",
   "description": "Enforces human-in-the-loop approval for risky AI actions via Airlock Gateway",

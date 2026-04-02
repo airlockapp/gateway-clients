@@ -133,7 +133,7 @@ Add to your OpenClaw plugin config:
           "pairingCode": "A3K9X2",
           "workspaceName": "My AI Workspace",
           "failMode": "closed",
-          "protectedTools": ["shell.exec", "deploy.run"],
+          "protectedTools": ["exec", "shell.*", "deploy.run", "*"],
           "timeoutMs": 300000,
           "executionMode": "poll"
         }
@@ -305,6 +305,7 @@ Approver decisions are signed with Ed25519. The plugin verifies signatures using
 ### Plugin not intercepting tools
 - Check that `protectedTools` includes the tool names you want to gate.
 - An empty `protectedTools` array means no automatic enforcement (opt-in model).
+- OpenClaw's built-in shell/bash execution tool is named **`exec`** internally — not `bash` or `shell.exec`. Add `"exec"` to `protectedTools`, or use `"*"` to intercept all tools regardless of name.
 - Use the `airlock_request_approval` tool for explicit control.
 
 ### Gateway unreachable

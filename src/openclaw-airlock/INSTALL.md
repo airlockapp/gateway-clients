@@ -42,6 +42,9 @@ ssh root@<server-ip> "mkdir -p /root/.openclaw/extensions/airlock"
 # Copy the required files
 scp -r dist package.json openclaw.plugin.json node_modules \
   root@<server-ip>:~/.openclaw/extensions/airlock/
+
+# Fix file ownership (required — OpenClaw blocks plugins with unexpected ownership)
+ssh root@<server-ip> "chown -R root:root ~/.openclaw/extensions/airlock/"
 ```
 
 ### Dual-User Setup (DigitalOcean)
@@ -53,6 +56,7 @@ ssh root@<server-ip> "
   cp -r /root/.openclaw/extensions/airlock /home/openclaw/.openclaw/extensions/
   chown -R openclaw:openclaw /home/openclaw/.openclaw/extensions/airlock
 "
+```
 
 ## 3. Configure the Plugin
 
@@ -72,9 +76,10 @@ Edit the OpenClaw configuration file (`~/.openclaw/openclaw.json`) and add the A
           "clientSecret": "<your-client-secret>",
           "pairingCode": "<your-pairing-code>",
           "protectedTools": [
-            "shell.exec",
+            "exec",
             "shell.*",
-            "computer.*"
+            "computer.*",
+            "*"
           ]
         }
       }
@@ -253,11 +258,16 @@ The state survives service restarts. Re-pairing is only needed if the pairing is
 
 ## Troubleshooting
 
-### Plugin not loading
+### Plugin not loading — "suspicious ownership"
 ```
-Config warnings: plugin airlock: plugin id mismatch
+blocked plugin candidate: suspicious ownership (uid=XXXX, expected uid=0 or root)
 ```
-This warning is cosmetic and can be ignored. The plugin loads correctly despite the warning.
+OpenClaw rejects plugin files not owned by `root`. Fix with:
+```bash
+chown -R root:root ~/.openclaw/extensions/airlock/
+systemctl restart openclaw
+```
+This commonly happens when files are uploaded from a non-root system (Windows, another Linux user, etc.).
 
 ### "Not paired" after restart
 Ensure the extension files exist in **both** user directories:

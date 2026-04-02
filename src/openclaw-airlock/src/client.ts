@@ -99,7 +99,7 @@ export class AirlockClient {
 
   constructor(config: AirlockConfig, logger?: (msg: string) => void) {
     this.config = config;
-    this.log = logger ?? ((msg: string) => console.error(`[Airlock] ${msg}`));
+    this.log = logger ?? ((msg: string) => console.info(`[Airlock] ${msg}`));
 
     this.gateway = new AirlockGatewayClient({
       baseUrl: config.gatewayUrl,

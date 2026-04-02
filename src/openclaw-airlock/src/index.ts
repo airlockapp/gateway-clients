@@ -28,11 +28,16 @@ import { registerCliCommands } from "./cli/register.js";
 interface OpenClawPluginAPI {
   getConfig(): Record<string, unknown>;
   registerTool(def: unknown, handler: (input: unknown) => Promise<unknown>): void;
-  registerHook(event: string, handler: (context: unknown) => Promise<void>): void;
+  registerHook(event: string, handler: (context: unknown) => Promise<unknown>, options?: { name?: string; description?: string }): void;
   registerCommand(def: unknown, handler: () => Promise<string>): void;
   registerCli(
     registrar: (ctx: { program: unknown; config: unknown; workspaceDir: string; logger: unknown }) => void | Promise<void>,
     opts?: { commands?: string[] },
+  ): void;
+  on(
+    hookName: string,
+    handler: (event: unknown, ctx?: unknown) => unknown,
+    opts?: { priority?: number },
   ): void;
 }
 
@@ -59,7 +64,7 @@ function definePluginEntry(def: PluginEntryDefinition): PluginEntryDefinition {
 // ── Plugin Definition ───────────────────────────────────────────
 
 export default definePluginEntry({
-  id: "airlock",
+  id: "openclaw-airlock",
   name: "Airlock Security Gateway",
   description:
     "Enforces human-in-the-loop approval for risky AI actions via Airlock Gateway. " +
@@ -82,28 +87,7 @@ export default definePluginEntry({
         return (_oCmd as (def: unknown) => void).call(api, a);
       } as OpenClawPluginAPICompat["registerCommand"];
     }
-    const _oHook = api.registerHook;
-    if (_oHook) {
-      api.registerHook = function (a: unknown, b?: (context: unknown) => Promise<void>) {
-        try {
-          // OpenClaw registerHook may expect (name, event, handler) or (event, handler)
-          if (typeof a === "string" && typeof b === "function") {
-            const hookName = `airlock-${a}`;
-            try {
-              // Try 3-arg: (name, event, handler)
-              return (_oHook as Function).call(api, hookName, a, b);
-            } catch {
-              // Fall back to 2-arg: (event, handler)
-              return (_oHook as Function).call(api, a, b);
-            }
-          }
-          return (_oHook as (def: unknown) => void).call(api, a);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.warn("[Airlock] registerHook warning:", msg);
-        }
-      };
-    }
+    // Hook shim removed — using correct OpenClaw API: registerHook(event, handler, { name, description })
     // END AIRLOCK_COMPAT_SHIM
 
     const readyApi = api as OpenClawPluginAPI;
@@ -125,7 +109,7 @@ export default definePluginEntry({
     // (async — non-blocking; plugin is usable immediately if state exists in config)
     client.initialize().catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[Airlock] Initialization warning: ${msg}`);
+      console.warn(`[Airlock] Initialization warning: ${msg}`);
     });
 
     // Phase 4: Tool — requestApproval
@@ -143,7 +127,7 @@ export default definePluginEntry({
     // Phase 8: CLI commands — single registrar for all airlock subcommands
     registerCliCommands(readyApi, client, config);
 
-    console.error(
+    console.info(
       `[Airlock] Plugin loaded — enforcer=${config.enforcerId}, ` +
       `failMode=${config.failMode}, ` +
       `protectedTools=${config.protectedTools.length > 0 ? config.protectedTools.join(",") : "(none)"}`,

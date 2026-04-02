@@ -1,52 +1,63 @@
 /**
- * Hook: beforeTool — automatic interception of protected tool executions.
+ * Hook: before_tool_call — automatic interception of protected tool executions.
  *
- * Intercepts tool calls before they execute and requires approval from
- * the mobile approver for tools listed in `protectedTools`.
+ * Uses OpenClaw's `before_tool_call` plugin hook event to intercept tools
+ * and require approval from the Airlock mobile approver.
  *
  * If `protectedTools` is empty, no tools are automatically protected
  * (opt-in model). Use the requestApproval tool for explicit control.
  *
  * Checks DND (Do Not Disturb) policies before requesting approval —
  * if a matching DND policy is active, the tool is auto-approved.
+ *
+ * Returns `{ block: true, blockReason }` to block, or `undefined` to allow.
  */
 
 import type { AirlockClient } from "../client.js";
 import type { AirlockConfig } from "../config.js";
 
-/** Context passed to the beforeTool hook by OpenClaw. */
+/** Context passed to the before_tool_call hook by OpenClaw. */
 export interface BeforeToolContext {
   /** The name of the tool being executed. */
   toolName: string;
-  /** The tool's input arguments. */
-  toolInput: unknown;
+  /** The tool's input parameters. */
+  params?: Record<string, unknown>;
+  /** The tool's input arguments (legacy compat). */
+  toolInput?: unknown;
   /** Optional metadata about the tool call. */
   metadata?: Record<string, unknown>;
 }
 
+/** Return value for before_tool_call — OpenClaw checks these fields. */
+export interface BeforeToolResult {
+  block?: boolean;
+  blockReason?: string;
+  params?: Record<string, unknown>;
+}
+
 /**
- * Register the beforeTool hook with the OpenClaw plugin API.
- *
- * The hook checks if the tool being executed is in the `protectedTools` list.
- * If it is, an approval request is sent to the gateway and the hook blocks
- * until the approver decides.
+ * Register the before_tool_call hook with the OpenClaw plugin API.
  *
  * @param api OpenClaw plugin API (api.registerHook)
  * @param client AirlockClient instance
  * @param config Validated AirlockConfig
  */
 export function registerBeforeToolHook(
-  api: { registerHook: (event: string, handler: (context: unknown) => Promise<void>) => void },
+  api: { on: (hookName: string, handler: (event: unknown, ctx?: unknown) => unknown, opts?: { priority?: number }) => void },
   client: AirlockClient,
   config: AirlockConfig,
 ): void {
-  api.registerHook("beforeTool", async (rawContext: unknown) => {
+  // OpenClaw API: api.on(hookName, handler) → registerTypedHook → registry.typedHooks (callable)
+  // NOTE: api.registerHook() only adds to registry.hooks (metadata), never invoked by the hook runner.
+  api.on("before_tool_call", async (rawContext: unknown) => {
     const context = rawContext as BeforeToolContext;
     const toolName = context.toolName;
 
+    console.log(`[Airlock] tool:before_call fired — tool=${toolName}`);
+
     // ── Opt-in model: if protectedTools is empty, do nothing ──
     if (config.protectedTools.length === 0) {
-      return;
+      return {};
     }
 
     // ── Check if this tool is in the protected list ──
@@ -55,61 +66,71 @@ export function registerBeforeToolHook(
     );
 
     if (!isProtected) {
-      return; // Not protected — allow without approval
+      console.log(`[Airlock] Tool ${toolName} not protected — allowing`);
+      return {};
     }
 
+    console.info(`[Airlock] Tool ${toolName} is PROTECTED — requesting approval`);
+
     // ── Check DND (Do Not Disturb) policies ──
-    // If a matching DND policy is active, auto-approve without bothering the user
     const dndActive = await client.isDndActive();
+
     if (dndActive) {
-      return; // DND active — auto-approve silently
+      console.info(`[Airlock] DND active — auto-approving tool ${toolName}`);
+      return {};
     }
 
     // ── Build a readable command text from tool input ──
+    const toolInput = context.params ?? context.toolInput;
     let commandText: string;
     try {
-      commandText = typeof context.toolInput === "string"
-        ? context.toolInput
-        : JSON.stringify(context.toolInput, null, 2);
+      commandText = typeof toolInput === "string"
+        ? toolInput
+        : JSON.stringify(toolInput, null, 2);
     } catch {
-      commandText = String(context.toolInput);
+      commandText = String(toolInput);
     }
 
-    // Truncate very long inputs to avoid overwhelming the approver
+    // Truncate very long inputs
     const maxLen = 2000;
     if (commandText.length > maxLen) {
       commandText = commandText.slice(0, maxLen) + "\n... (truncated)";
     }
 
-    // ── Request approval ──
+    // ── Request approval from Airlock Gateway ──
     const decision = await client.requestApproval({
       actionType: toolName,
       commandText,
       description: `Tool: ${toolName}`,
     });
 
-    // ── Apply decision ──
+    // ── Apply decision using OpenClaw's { block, blockReason } response ──
     if (decision.decision === "approved") {
-      return; // Allow tool execution
+      console.info(`[Airlock] Tool ${toolName} APPROVED`);
+      return {};
     }
 
     if (decision.decision === "rejected") {
-      throw new Error(
-        `Airlock: Action denied by approver — ${decision.reason ?? "no reason provided"}. ` +
-        `Do NOT retry this action automatically.`,
-      );
+      const reason = decision.reason ?? "no reason provided";
+      console.warn(`[Airlock] Tool ${toolName} DENIED — ${reason}`);
+      return {
+        block: true,
+        blockReason: `Airlock: Action denied by approver — ${reason}. Do NOT retry this action automatically.`,
+      };
     }
 
     // Timeout — apply failMode
     if (config.failMode === "closed") {
-      throw new Error(
-        "Airlock: Approval timed out — blocking (fail-closed). " +
-        "Do NOT retry this action automatically.",
-      );
+      console.warn(`[Airlock] Tool ${toolName} TIMEOUT — blocking (fail-closed)`);
+      return {
+        block: true,
+        blockReason: "Airlock: Approval timed out — blocking (fail-closed). Do NOT retry this action automatically.",
+      };
     }
 
     // failMode === "open" — allow silently
-    return;
+    console.warn(`[Airlock] Tool ${toolName} TIMEOUT — allowing (fail-open)`);
+    return {};
   });
 }
 

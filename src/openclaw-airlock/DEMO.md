@@ -57,9 +57,10 @@ Add the Airlock plugin to your OpenClaw configuration (`~/.openclaw/openclaw.jso
           "clientSecret": "your-client-secret",
           "pairingCode": "XXXXXX",
           "protectedTools": [
-            "shell.exec",
+            "exec",
             "shell.*",
-            "computer.*"
+            "computer.*",
+            "*"
           ]
         }
       }
@@ -72,9 +73,10 @@ Add the Airlock plugin to your OpenClaw configuration (`~/.openclaw/openclaw.jso
 
 | Pattern | What it catches |
 |---------|-----------------|
-| `shell.exec` | Direct shell command execution |
-| `shell.*` | All shell-related tools (exec, read, write) |
+| `exec` | OpenClaw's built-in shell/bash execution tool |
+| `shell.*` | Tools in the `shell.*` namespace (exec, read, write variants) |
 | `computer.*` | Screen capture, mouse/keyboard control |
+| `*` | Every tool call, regardless of name (recommended for maximum coverage) |
 
 Restart the service after editing:
 
@@ -287,7 +289,7 @@ Protected tools (3):
    ```
    🔒 Approval Request
    ──────────────────────────────
-   Tool:      shell.exec
+   Tool:      exec
    Command:   df -h
    Workspace: OpenClaw Workspace
    Enforcer:  my-enforcer-001
