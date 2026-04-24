@@ -276,6 +276,11 @@ func checkConsent() {
 
 // ── Pair Device ─────────────────────────────────────────────────────
 func doPair() error {
+	// Auto-regenerate enforcer ID if cleared by unpair (no restart needed)
+	if cfg.EnforcerID == "" {
+		cfg.EnforcerID = fmt.Sprintf("enf-%s", generateUUID())
+	}
+
 	if cfg.DeviceID == "" {
 		hn, _ := os.Hostname()
 		defaultID := fmt.Sprintf("dev-%s", strings.ToLower(hn))
@@ -547,7 +552,9 @@ func doUnpair() error {
 	}
 
 	cfg.RoutingToken = ""
+	cfg.EncryptionKey = ""
 	cfg.DeviceID = ""
+	cfg.EnforcerID = "" // Clear so re-pairing generates a new enf-<uuid>
 	stopHeartbeat()
 	saveConfig()
 
@@ -739,7 +746,7 @@ func runSetupWizard() {
 		{"Gateway URL", &cfg.GatewayURL, "https://igw.airlocks.io", false},
 		{"Client ID", &cfg.ClientID, "", false},
 		{"Client Secret", &cfg.ClientSecret, "", true},
-		{"Enforcer ID", &cfg.EnforcerID, "enf-test", false},
+		{"Enforcer ID", &cfg.EnforcerID, cfg.EnforcerID, false},
 		{"Workspace Name", &cfg.WorkspaceName, "default", false},
 	}
 
@@ -868,7 +875,7 @@ func loadConfig() {
 		cfg.GatewayURL = "https://igw.airlocks.io"
 	}
 	if cfg.EnforcerID == "" {
-		cfg.EnforcerID = "enf-test"
+		cfg.EnforcerID = fmt.Sprintf("enf-%s", generateUUID())
 	}
 	if cfg.WorkspaceName == "" {
 		cfg.WorkspaceName = "default"
@@ -890,4 +897,14 @@ func maskSecret(secret string) string {
 		return strings.Repeat("*", len(secret))
 	}
 	return secret[:4] + "…" + secret[len(secret)-4:]
+}
+
+// generateUUID generates a random UUID v4 string using crypto/rand.
+func generateUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }

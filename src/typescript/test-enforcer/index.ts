@@ -37,7 +37,7 @@ let cfg: Config = {
     gatewayUrl: 'https://igw.airlocks.io',
     clientId: '',
     clientSecret: '',
-    enforcerId: 'enf-test',
+    enforcerId: '',
     workspaceName: 'default',
     deviceId: '',
     routingToken: '',
@@ -69,6 +69,10 @@ function loadConfig(): void {
         }
     } catch {
         // use defaults
+    }
+    // Auto-generate unique enforcer ID if not set
+    if (!cfg.enforcerId) {
+        cfg.enforcerId = `enf-${crypto.randomUUID()}`;
     }
 }
 
@@ -260,6 +264,11 @@ async function checkConsent(): Promise<void> {
 
 // ── Pair Device ─────────────────────────────────────────────────────
 async function doPair(): Promise<void> {
+    // Auto-regenerate enforcerId if cleared by unpair (no restart needed)
+    if (!cfg.enforcerId) {
+        cfg.enforcerId = `enf-${crypto.randomUUID()}`;
+    }
+
     if (!cfg.deviceId) {
         const defaultId = `dev-${os.hostname().toLowerCase()}`;
         cfg.deviceId = await input({ message: 'Device ID:', default: defaultId }) || defaultId;
@@ -479,7 +488,9 @@ async function doUnpair(): Promise<void> {
     }
 
     cfg.routingToken = '';
+    cfg.encryptionKey = '';
     cfg.deviceId = '';
+    cfg.enforcerId = ''; // Clear so re-pairing generates a new enf-<uuid>
     stopHeartbeat();
     saveConfig();
     console.log(chalk.green('✓ Unpaired.'));
